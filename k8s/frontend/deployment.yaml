@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: steam-optimizer
+  labels:
+    app.kubernetes.io/name: steam-optimizer
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/name: steam-optimizer
+        app.kubernetes.io/component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: steam-optimizer-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 3
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: frontend-nginx-config

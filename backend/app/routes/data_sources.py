@@ -1,0 +1,144 @@
+from datetime import datetime, timezone
+from flask import Blueprint, request, jsonify
+from ..extensions import db
+from ..models.data_source import DataSource
+from ..models.game import Game
+
+data_sources_bp = Blueprint('data_sources', __name__)
+
+
+@data_sources_bp.route('', methods=['GET'])
+def list_data_sources():
+    game_id = request.args.get('game_id', type=int)
+    if not game_id:
+        return jsonify({'error': 'game_id query parameter is required'}), 400
+
+    sources = DataSource.query.filter_by(game_id=game_id).order_by(
+        DataSource.created_at.desc()
+    ).all()
+    return jsonify([s.to_dict() for s in sources])
+
+
+@data_sources_bp.route('/<int:source_id>', methods=['GET'])
+def get_data_source(source_id):
+    source = db.session.get(DataSource, source_id)
+    if not source:
+        return jsonify({'error': 'Data source not found'}), 404
+    return jsonify(source.to_dict())
+
+
+@data_sources_bp.route('', methods=['POST'])
+def create_data_source():
+    data = request.get_json()
+    if not data or not data.get('game_id') or not data.get('url'):
+        return jsonify({'error': 'game_id and url are required'}), 400
+
+    source = DataSource(
+        game_id=data['game_id'],
+        url=data['url'],
+        title=data.get('title'),
+        source_type=data.get('source_type', 'other'),
+        is_auto=data.get('is_auto', False),
+    )
+    db.session.add(source)
+    db.session.commit()
+    return jsonify(source.to_dict()), 201
+
+
+@data_sources_bp.route('/<int:source_id>', methods=['PUT'])
+def update_data_source(source_id):
+    source = db.session.get(DataSource, source_id)
+    if not source:
+        return jsonify({'error': 'Data source not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    for field in ['url', 'title', 'source_type']:
+        if field in data:
+            setattr(source, field, data[field])
+
+    db.session.commit()
+    return jsonify(source.to_dict())
+
+
+@data_sources_bp.route('/<int:source_id>', methods=['DELETE'])
+def delete_data_source(source_id):
+    source = db.session.get(DataSource, source_id)
+    if not source:
+        return jsonify({'error': 'Data source not found'}), 404
+
+    db.session.delete(source)
+    db.session.commit()
+    return jsonify({'message': 'Data source deleted'}), 200
+
+
+@data_sources_bp.route('/<int:source_id>/scrape', methods=['POST'])
+def scrape_source(source_id):
+    """Scrape or re-scrape a single data source."""
+    source = db.session.get(DataSource, source_id)
+    if not source:
+        return jsonify({'error': 'Data source not found'}), 404
+
+    from ..services.scraper import ScraperService
+    scraper = ScraperService()
+    result = scraper.scrape_url(source.url)
+
+    if result.get('error') and not result.get('content'):
+        return jsonify({'error': f"Scraping failed: {result['error']}"}), 422
+
+    source.scraped_content = result.get('content')
+    source.title = result.get('title') or source.title
+    source.last_scraped = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Source scraped successfully',
+        'source': source.to_dict(),
+        'content_length': len(source.scraped_content) if source.scraped_content else 0,
+    })
+
+
+@data_sources_bp.route('/auto-discover/<int:game_id>', methods=['POST'])
+def auto_discover_sources(game_id):
+    """Auto-discover achievement guide sources for a game via web search."""
+    game = db.session.get(Game, game_id)
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+
+    from ..services.scraper import ScraperService
+    scraper = ScraperService()
+    discovered = scraper.auto_discover_sources(game.name)
+
+    if not discovered:
+        return jsonify({'message': 'No sources discovered', 'added': 0})
+
+    added = 0
+    for item in discovered:
+        # Skip duplicates
+        existing = DataSource.query.filter_by(game_id=game_id, url=item['url']).first()
+        if existing:
+            continue
+
+        source = DataSource(
+            game_id=game_id,
+            url=item['url'],
+            title=item['title'],
+            source_type=item['source_type'],
+            is_auto=True,
+        )
+        db.session.add(source)
+        added += 1
+
+    db.session.commit()
+
+    sources = DataSource.query.filter_by(game_id=game_id).order_by(
+        DataSource.created_at.desc()
+    ).all()
+
+    return jsonify({
+        'message': f'Discovered {len(discovered)} sources, added {added} new',
+        'added': added,
+        'sources': [s.to_dict() for s in sources],
+    })

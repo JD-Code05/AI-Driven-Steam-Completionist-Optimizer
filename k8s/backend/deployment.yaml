@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: steam-optimizer
+  labels:
+    app.kubernetes.io/name: steam-optimizer
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/name: steam-optimizer
+        app.kubernetes.io/component: backend
+    spec:
+      containers:
+        - name: backend
+          image: steam-optimizer-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: steam-optimizer-config
+          env:
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: steam-optimizer-secrets
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: steam-optimizer-secrets
+                  key: MYSQL_PASSWORD
+            - name: FLASK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: steam-optimizer-secrets
+                  key: FLASK_SECRET_KEY
+            - name: STEAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: steam-optimizer-secrets
+                  key: STEAM_API_KEY
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: steam-optimizer-secrets
+                  key: GEMINI_API_KEY
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2

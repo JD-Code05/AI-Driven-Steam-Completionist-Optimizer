@@ -1,0 +1,46 @@
+# Ingress — Placeholder for production domain deployment
+# For local Docker Desktop K8s, use the NodePort service (localhost:30000) instead.
+#
+# To use this:
+# 1. Enable an Ingress controller (e.g., nginx-ingress)
+#    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/cloud/deploy.yaml
+# 2. Update the host below with your domain
+# 3. Add TLS secret for HTTPS
+#
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: steam-optimizer-ingress
+  namespace: steam-optimizer
+  labels:
+    app.kubernetes.io/name: steam-optimizer
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Uncomment for TLS/cert-manager:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  # Uncomment for TLS:
+  # tls:
+  #   - hosts:
+  #       - steam-optimizer.yourdomain.com
+  #     secretName: steam-optimizer-tls
+  rules:
+    - host: steam-optimizer.yourdomain.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

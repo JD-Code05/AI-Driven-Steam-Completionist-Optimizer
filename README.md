@@ -1,4 +1,4 @@
-# AI Driven Steam Completionist Optimizer
+# AI-Driven Steam Completionist Optimizer
 
 An AI-driven web application that helps Steam gamers plan and optimize their achievement hunting. Syncs your Steam library, scrapes achievement guides from the web and YouTube, and uses Google Gemini AI to generate personalized completion routes.
 

@@ -4,23 +4,28 @@ import ProgressBar from './ProgressBar'
 export default function GameCard({ game, playerGame, unlockedCount }) {
   const total = game.total_achievements || 0
   const unlocked = unlockedCount ?? 0
+  // Use logo URL if available, fall back to icon URL
+  const imageUrl = game.img_logo_url || game.img_icon_url
 
   return (
     <Link
       to={`/games/${game.id}`}
       className="group block bg-surface-light rounded-xl overflow-hidden border border-gray-800 hover:border-steam-blue/50 transition-all duration-200 hover:shadow-lg hover:shadow-steam-blue/10"
     >
-      {game.img_logo_url ? (
-        <div className="h-32 overflow-hidden">
+      {imageUrl ? (
+        <div className="h-48 overflow-hidden bg-gray-900">
           <img
-            src={game.img_logo_url}
+            src={imageUrl}
             alt={game.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              e.target.style.display = 'none'
+            }}
           />
         </div>
       ) : (
-        <div className="h-32 bg-gradient-to-br from-steam-dark to-steam-light flex items-center justify-center">
-          <span className="text-2xl font-bold text-gray-500">{game.name?.[0] || '?'}</span>
+        <div className="h-48 bg-gradient-to-br from-steam-dark to-steam-light flex items-center justify-center">
+          <span className="text-4xl font-bold text-gray-500">{game.name?.[0] || '?'}</span>
         </div>
       )}
       <div className="p-4">

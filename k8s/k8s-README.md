@@ -117,7 +117,7 @@ Non-sensitive configuration shared across services:
 | `MYSQL_DATABASE` | `steam_optimizer` | Backend, MySQL |
 | `FLASK_ENV` | `production` | Backend |
 | `FLASK_DEBUG` | `0` | Backend |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Backend |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Backend |
 
 ### `secrets.yaml`
 

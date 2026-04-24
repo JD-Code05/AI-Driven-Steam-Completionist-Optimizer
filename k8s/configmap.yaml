@@ -11,4 +11,4 @@ data:
   MYSQL_DATABASE: "steam_optimizer"
   FLASK_ENV: "production"
   FLASK_DEBUG: "0"
-  GEMINI_MODEL: "gemini-2.0-flash"
+  GEMINI_MODEL: "gemini-2.5-flash"

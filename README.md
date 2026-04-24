@@ -292,7 +292,7 @@ kubectl delete namespace steam-optimizer
 | `FLASK_SECRET_KEY` | Yes | — | Secret key for JWT token signing |
 | `STEAM_API_KEY` | Yes | — | Steam Web API key |
 | `GEMINI_API_KEY` | Yes | — | Google Gemini API key |
-| `GEMINI_MODEL` | No | `gemini-2.0-flash` | Gemini model to use |
+| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model to use |
 | `FLASK_ENV` | No | `production` | `development` or `production` |
 | `FLASK_DEBUG` | No | `0` | Set to `1` for debug mode |
 

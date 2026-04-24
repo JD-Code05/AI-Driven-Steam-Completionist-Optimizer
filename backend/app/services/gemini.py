@@ -53,7 +53,7 @@ class GeminiService:
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
         genai.configure(api_key=api_key)
-        self.model_name = current_app.config.get('GEMINI_MODEL', 'gemini-2.0-flash')
+        self.model_name = current_app.config.get('GEMINI_MODEL', 'gemini-2.5-flash')
 
     def generate_optimization(self, game_name, achievements_context, sources_context):
         """Generate an optimization guide using Gemini with RAG context.

@@ -23,7 +23,7 @@ class Config:
 
     STEAM_API_KEY = os.getenv('STEAM_API_KEY', '')
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-    GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+    GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 
     JWT_ALGORITHM = 'HS256'
     JWT_EXPIRATION_HOURS = 24

@@ -8,7 +8,7 @@ class SteamAPIService:
 
     BASE_URL = 'https://api.steampowered.com'
     STORE_URL = 'https://store.steampowered.com'
-    CDN_URL = 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps'
+    CDN_URL = 'https://media.steampowered.com/steamcommunity/public/images/apps'
 
     _last_request_time = 0
     _rate_limit_interval = 1.0  # seconds between requests
@@ -60,11 +60,13 @@ class SteamAPIService:
         result = []
         for g in games:
             app_id = g.get('appid')
+            # Use Steam Store library capsule image for better quality poster
+            capsule_url = f'https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900.jpg'
             result.append({
                 'app_id': app_id,
                 'name': g.get('name'),
-                'img_icon_url': f"{self.CDN_URL}/{app_id}/{g.get('img_icon_url')}.jpg" if g.get('img_icon_url') else None,
-                'img_logo_url': f"{self.CDN_URL}/{app_id}/{g.get('img_logo_url')}.jpg" if g.get('img_logo_url') else None,
+                'img_icon_url': capsule_url,
+                'img_logo_url': capsule_url,
                 'playtime_minutes': g.get('playtime_forever', 0),
             })
         return result

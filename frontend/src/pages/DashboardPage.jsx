@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [recentAchievements, setRecentAchievements] = useState([])
   const [syncing, setSyncing] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showAllGames, setShowAllGames] = useState(false)
 
   useEffect(() => {
     if (player) loadData()
@@ -105,7 +106,14 @@ export default function DashboardPage() {
 
           {/* Quick stats row */}
           <div className="grid grid-cols-3 gap-3">
-            <StatCard icon={<HiTrophy />} label="Games Owned" value={totalGames} color="text-amber-400" />
+            <button
+              onClick={() => setShowAllGames(true)}
+              className="bg-surface rounded-lg p-3 border border-gray-800/50 hover:border-steam-blue/30 transition-colors cursor-pointer"
+            >
+              <div className="text-lg mb-1 text-amber-400"><HiTrophy /></div>
+              <p className="text-xl font-bold text-white">{totalGames}</p>
+              <p className="text-xs text-gray-500">Games Owned</p>
+            </button>
             <StatCard icon={<HiSparkles />} label="Tracked" value={trackedGames.length} color="text-blue-400" />
             <StatCard icon={<HiCpuChip />} label="Total Hours" value={Math.round(totalPlaytime)} color="text-purple-400" />
           </div>
@@ -209,6 +217,47 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Modal: All Games */}
+      {showAllGames && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-light rounded-xl border border-gray-800 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-surface-light border-b border-gray-800 p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">All Games ({playerGames.length})</h2>
+              <button
+                onClick={() => setShowAllGames(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Games Grid */}
+            <div className="p-6">
+              {playerGames.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {playerGames.map((pg) => (
+                    <GameCard
+                      key={pg.id}
+                      game={pg.game}
+                      playerGame={pg}
+                      unlockedCount={0}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <HiTrophy className="w-12 h-12 text-gray-700 mx-auto mb-3" />
+                  <p className="text-gray-500">No games found</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

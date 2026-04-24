@@ -43,7 +43,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me_in_production}
       STEAM_API_KEY: ${STEAM_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     networks:
       - steam-net
     depends_on:

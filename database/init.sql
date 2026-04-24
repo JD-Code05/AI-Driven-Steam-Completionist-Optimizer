@@ -27,6 +27,7 @@ CREATE TABLE games (
     name VARCHAR(255),
     img_icon_url TEXT,
     img_logo_url TEXT,
+    img_capsule_url TEXT,
     total_achievements INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_app_id (app_id)

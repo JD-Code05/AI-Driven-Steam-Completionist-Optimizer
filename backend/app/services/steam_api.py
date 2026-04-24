@@ -62,11 +62,20 @@ class SteamAPIService:
             app_id = g.get('appid')
             # Use Steam Store library capsule image for better quality poster
             capsule_url = f'https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900.jpg'
+
+            # Construct full URLs for icon and logo if only hashes are provided
+            img_icon_hash = g.get('img_icon_url')
+            full_img_icon_url = f'{self.CDN_URL}/{app_id}/{img_icon_hash}.jpg' if img_icon_hash else None
+
+            img_logo_hash = g.get('img_logo_url')
+            full_img_logo_url = f'{self.CDN_URL}/{app_id}/{img_logo_hash}.jpg' if img_logo_hash else None
+
             result.append({
                 'app_id': app_id,
                 'name': g.get('name'),
-                'img_icon_url': capsule_url,
-                'img_logo_url': capsule_url,
+                'img_icon_url': full_img_icon_url,
+                'img_logo_url': full_img_logo_url,
+                'img_capsule_url': capsule_url,
                 'playtime_minutes': g.get('playtime_forever', 0),
             })
         return result

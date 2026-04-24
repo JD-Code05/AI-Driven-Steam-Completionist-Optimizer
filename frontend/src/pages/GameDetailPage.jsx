@@ -178,9 +178,9 @@ export default function GameDetailPage() {
     <Layout>
       {/* Game Header */}
       <div className="bg-surface-light rounded-xl border border-gray-800 overflow-hidden mb-6">
-        {game.img_logo_url && (
+        {game.img_capsule_url && (
           <div className="h-48 overflow-hidden">
-            <img src={game.img_logo_url} alt={game.name} className="w-full h-full object-cover opacity-60" />
+            <img src={game.img_capsule_url} alt={game.name} className="w-full h-full object-cover opacity-60" />
           </div>
         )}
         <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">

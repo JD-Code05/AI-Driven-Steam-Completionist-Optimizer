@@ -24,7 +24,26 @@ export default function DashboardPage() {
     setLoading(true)
     try {
       const { data: pgData } = await playerGamesAPI.list(player.id)
-      setPlayerGames(pgData)
+
+      // Fetch achievements for all games concurrently
+      const playerAchievementsPromises = pgData.map(async (pg) => {
+        if (pg.game?.id) {
+          const { data: paData } = await playerAchievementsAPI.list(player.id, pg.game.id)
+          return { gameId: pg.game.id, unlockedCount: paData.filter((pa) => pa.unlocked).length }
+        }
+        return { gameId: pg.game?.id, unlockedCount: 0 }
+      })
+
+      const allPlayerAchievements = await Promise.all(playerAchievementsPromises)
+      const achievementMap = new Map(allPlayerAchievements.map(item => [item.gameId, item.unlockedCount]));
+
+      const playerGamesWithAchievements = pgData.map(pg => ({
+        ...pg,
+        unlockedCount: achievementMap.get(pg.game?.id) || 0,
+        totalAchievements: pg.game?.total_achievements || 0,
+      }))
+
+      setPlayerGames(playerGamesWithAchievements)
 
       // Load recent achievements from tracked games
       const tracked = pgData.filter((pg) => pg.is_tracked)
@@ -111,8 +130,8 @@ export default function DashboardPage() {
               className="bg-surface rounded-lg p-3 border border-gray-800/50 hover:border-steam-blue/30 transition-colors cursor-pointer"
             >
               <div className="text-lg mb-1 text-amber-400"><HiTrophy /></div>
-              <p className="text-xl font-bold text-white">{totalGames}</p>
-              <p className="text-xs text-gray-500">Games Owned</p>
+              <p className="text-xl font-bold text-white text-left">{totalGames}</p>
+              <p className="text-xs text-gray-500 text-left">Games Owned</p>
             </button>
             <StatCard icon={<HiSparkles />} label="Tracked" value={trackedGames.length} color="text-blue-400" />
             <StatCard icon={<HiCpuChip />} label="Total Hours" value={Math.round(totalPlaytime)} color="text-purple-400" />
@@ -149,7 +168,8 @@ export default function DashboardPage() {
                 key={pg.id}
                 game={pg.game}
                 playerGame={pg}
-                unlockedCount={0}
+                unlockedCount={pg.unlockedCount}
+                totalAchievements={pg.totalAchievements}
               />
             ))}
           </div>
@@ -244,7 +264,8 @@ export default function DashboardPage() {
                       key={pg.id}
                       game={pg.game}
                       playerGame={pg}
-                      unlockedCount={0}
+                      unlockedCount={pg.unlockedCount}
+                      totalAchievements={pg.totalAchievements}
                     />
                   ))}
                 </div>

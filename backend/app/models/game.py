@@ -10,6 +10,7 @@ class Game(db.Model):
     name = db.Column(db.String(255))
     img_icon_url = db.Column(db.Text)
     img_logo_url = db.Column(db.Text)
+    img_capsule_url = db.Column(db.Text)
     total_achievements = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -25,6 +26,7 @@ class Game(db.Model):
             'name': self.name,
             'img_icon_url': self.img_icon_url,
             'img_logo_url': self.img_logo_url,
+            'img_capsule_url': self.img_capsule_url,
             'total_achievements': self.total_achievements,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }

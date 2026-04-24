@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 import ProgressBar from './ProgressBar'
 
-export default function GameCard({ game, playerGame, unlockedCount }) {
-  const total = game.total_achievements || 0
+export default function GameCard({ game, playerGame, unlockedCount, totalAchievements }) {
+  const total = totalAchievements ?? 0
   const unlocked = unlockedCount ?? 0
   // Use logo URL if available, fall back to icon URL
-  const imageUrl = game.img_logo_url || game.img_icon_url
+  const imageUrl = game.img_capsule_url || game.img_logo_url || game.img_icon_url
 
   return (
     <Link
@@ -28,7 +28,7 @@ export default function GameCard({ game, playerGame, unlockedCount }) {
           <span className="text-4xl font-bold text-gray-500">{game.name?.[0] || '?'}</span>
         </div>
       )}
-      <div className="p-4">
+      <div className="p-4 text-left">
         <h3 className="font-semibold text-sm text-white truncate mb-2">{game.name}</h3>
         {total > 0 ? (
           <ProgressBar value={unlocked} max={total} size="sm" />

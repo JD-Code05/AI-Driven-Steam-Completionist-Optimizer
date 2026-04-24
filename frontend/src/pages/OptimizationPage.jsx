@@ -143,20 +143,20 @@ export default function OptimizationPage() {
       {/* Content */}
       {route ? (
         <div className="bg-surface-light rounded-xl border border-gray-800 p-6 lg:p-8">
-          <div className="prose prose-invert prose-sm max-w-none
-            prose-headings:text-white prose-headings:font-semibold
-            prose-h1:text-2xl prose-h2:text-lg prose-h3:text-base
+          <div className="prose prose-invert prose-base max-w-none
+            prose-headings:text-white prose-headings:font-bold
+            prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl
             prose-p:text-gray-300 prose-p:leading-relaxed
-            prose-a:text-steam-accent prose-a:no-underline hover:prose-a:underline
+            prose-a:text-steam-accent prose-a:underline hover:prose-a:no-underline
             prose-strong:text-white
             prose-li:text-gray-300
-            prose-code:text-purple-300 prose-code:bg-purple-900/20 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-            prose-pre:bg-surface prose-pre:border prose-pre:border-gray-700
-            prose-blockquote:border-steam-blue prose-blockquote:text-gray-400
+            prose-code:text-purple-300 prose-code:bg-purple-900/20 prose-code:px-2 prose-code:py-1 prose-code:rounded-md
+            prose-pre:bg-surface prose-pre:border prose-pre:border-gray-700 prose-pre:p-4 prose-pre:rounded-lg
+            prose-blockquote:border-l-4 prose-blockquote:border-steam-blue prose-blockquote:pl-4 prose-blockquote:text-gray-400
             prose-hr:border-gray-700
-            prose-table:text-sm
-            prose-th:text-gray-300 prose-th:border-gray-700
-            prose-td:text-gray-400 prose-td:border-gray-700
+            prose-table:text-base prose-table:w-full prose-table:border-collapse
+            prose-th:bg-surface prose-th:p-3 prose-th:text-gray-300 prose-th:font-semibold prose-th:border border-gray-700
+            prose-td:p-3 prose-td:text-gray-400 prose-td:border border-gray-700
           ">
             <ReactMarkdown>{route.summary_md}</ReactMarkdown>
           </div>

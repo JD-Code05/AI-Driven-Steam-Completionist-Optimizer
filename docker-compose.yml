@@ -35,6 +35,7 @@ services:
       FLASK_ENV: ${FLASK_ENV:-production}
       FLASK_DEBUG: ${FLASK_DEBUG:-0}
       FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-change_me_to_random_secret_key}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:5000}
       MYSQL_HOST: db
       MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-steam_optimizer}

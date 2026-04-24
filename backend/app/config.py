@@ -7,6 +7,8 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key')
 
+    BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
+
     MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
     MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
     MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'steam_optimizer')

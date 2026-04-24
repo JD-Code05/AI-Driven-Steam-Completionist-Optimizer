@@ -16,14 +16,19 @@ def login():
     """Redirect user to Steam OpenID login page."""
     return_url = request.args.get('return_url', 'http://localhost:3000')
 
-    callback_url = request.host_url.rstrip('/') + '/api/auth/callback'
+    backend_url = current_app.config.get('BACKEND_URL', 'http://localhost:5000')
+    callback_url = backend_url.rstrip('/') + '/api/auth/callback'
+
     callback_url += '?' + urllib.parse.urlencode({'return_url': return_url})
+
+    # Ensure realm is just the base URL without trailing slash
+    realm = backend_url.rstrip('/') + '/'
 
     params = {
         'openid.ns': 'http://specs.openid.net/auth/2.0',
         'openid.mode': 'checkid_setup',
         'openid.return_to': callback_url,
-        'openid.realm': request.host_url,
+        'openid.realm': realm,
         'openid.identity': 'http://specs.openid.net/auth/2.0/identifier_select',
         'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select',
     }

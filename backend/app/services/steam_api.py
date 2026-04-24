@@ -127,4 +127,4 @@ class SteamAPIService:
             return {}
 
         achievements = data.get('achievementpercentages', {}).get('achievements', [])
-        return {a['name']: round(a['percent'], 2) for a in achievements}
+        return {a['name']: round(float(a['percent']), 2) for a in achievements}

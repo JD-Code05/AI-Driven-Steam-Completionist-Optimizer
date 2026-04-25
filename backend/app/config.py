@@ -22,6 +22,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     STEAM_API_KEY = os.getenv('STEAM_API_KEY', '')
+    STEAMGRIDDB_API_KEY = os.getenv('STEAMGRIDDB_API_KEY', '')
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
     GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 

@@ -28,6 +28,7 @@ def create_app(config_class=Config):
     from .routes.auth import auth_bp
     from .routes.sync import sync_bp
     from .routes.ai import ai_bp
+    from .routes.steamgriddb import steamgriddb_bp
 
     app.register_blueprint(players_bp, url_prefix='/api/players')
     app.register_blueprint(games_bp, url_prefix='/api/games')
@@ -39,6 +40,7 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(sync_bp, url_prefix='/api/sync')
     app.register_blueprint(ai_bp, url_prefix='/api/ai')
+    app.register_blueprint(steamgriddb_bp, url_prefix='/api/steamgriddb')
 
     @app.route('/api/health')
     def health():

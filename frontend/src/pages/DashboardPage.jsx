@@ -45,19 +45,28 @@ export default function DashboardPage() {
 
       setPlayerGames(playerGamesWithAchievements)
 
-      // Load recent achievements from tracked games
+      // Load recent achievements from ALL tracked games
+      // Run all fetches in parallel, then take the 3 most recent per game
+      // so no single game crowds out the others in the combined sorted list
       const tracked = pgData.filter((pg) => pg.is_tracked)
-      const recentAchs = []
-      for (const pg of tracked.slice(0, 5)) {
-        try {
-          const { data: paData } = await playerAchievementsAPI.list(player.id, pg.game?.id)
-          const unlocked = paData
-            .filter((pa) => pa.unlocked && pa.unlock_time)
-            .map((pa) => ({ ...pa, game_name: pg.game?.name }))
-          recentAchs.push(...unlocked)
-        } catch { /* skip */ }
-      }
-      recentAchs.sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time))
+      const perGameResults = await Promise.all(
+        tracked.map(async (pg) => {
+          if (!pg.game?.id) return []
+          try {
+            const { data: paData } = await playerAchievementsAPI.list(player.id, pg.game.id)
+            return paData
+              .filter((pa) => pa.unlocked && pa.unlock_time)
+              .sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time))
+              .slice(0, 3) // cap per game so one active game can't dominate
+              .map((pa) => ({ ...pa, game_name: pg.game?.name }))
+          } catch {
+            return []
+          }
+        })
+      )
+      const recentAchs = perGameResults
+        .flat()
+        .sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time))
       setRecentAchievements(recentAchs.slice(0, 8))
     } catch (err) {
       console.error('Failed to load dashboard data:', err)

@@ -76,6 +76,7 @@ export const aiAPI = {
   generate: (gameId) => api.post(`/ai/generate/${gameId}`),
   getRoute: (gameId) => api.get(`/ai/routes/${gameId}`),
   regenerate: (gameId) => api.post(`/ai/regenerate/${gameId}`),
+  getAchievementTip: (achievementId) => api.post(`/ai/achievement-tip/${achievementId}`),
 }
 
 // Optimization Routes

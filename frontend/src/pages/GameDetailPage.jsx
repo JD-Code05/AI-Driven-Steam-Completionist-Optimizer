@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { gamesAPI, achievementsAPI, playerAchievementsAPI, playerGamesAPI, syncAPI, dataSourcesAPI, aiAPI } from '../services/api'
 import Layout from '../components/Layout'
 import AchievementCard from '../components/AchievementCard'
+import AchievementDetailModal from '../components/AchievementDetailModal'
 import ProgressBar from '../components/ProgressBar'
 import ProgressRing from '../components/ProgressRing'
 import {
@@ -27,6 +28,7 @@ export default function GameDetailPage() {
   const [newSource, setNewSource] = useState({ url: '', title: '', source_type: 'other' })
   const [discovering, setDiscovering] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [selectedAchievement, setSelectedAchievement] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -266,6 +268,11 @@ export default function GameDetailPage() {
                   achievement={ach}
                   unlocked={paMap[ach.id]?.unlocked || false}
                   unlockTime={paMap[ach.id]?.unlock_time}
+                  onClick={() => setSelectedAchievement({
+                    achievement: ach,
+                    unlocked: paMap[ach.id]?.unlocked || false,
+                    unlockTime: paMap[ach.id]?.unlock_time || null,
+                  })}
                 />
               ))
             ) : (
@@ -417,6 +424,17 @@ export default function GameDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Achievement Detail Modal */}
+      {selectedAchievement && (
+        <AchievementDetailModal
+          achievement={selectedAchievement.achievement}
+          unlocked={selectedAchievement.unlocked}
+          unlockTime={selectedAchievement.unlockTime}
+          isTracked={playerGame?.is_tracked || false}
+          onClose={() => setSelectedAchievement(null)}
+        />
+      )}
     </Layout>
   )
 }

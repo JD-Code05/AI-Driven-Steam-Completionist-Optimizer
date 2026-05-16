@@ -228,10 +228,14 @@ def get_achievement_tip(achievement_id):
         "You are a gaming achievement expert. For a single given achievement, "
         "provide a clear, concise, step-by-step guide on how to unlock it. "
         "Format your response in Markdown with these sections:\n"
-        "## 📋 How to Unlock\n"
+        "## 📋 How to Unlock (in numbered list format)\n"
+        "\n"
         "## ⚠️ Important Warnings (if any)\n"
+        "\n"
         "## ⏱️ Estimated Time\n"
+        "\n"
         "## 💡 Pro Tips\n"
+        "\n"
         "Be specific and actionable. Reference any guide material provided."
     )
 

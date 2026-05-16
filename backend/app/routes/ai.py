@@ -30,7 +30,7 @@ def generate_optimization(game_id):
 
     # 1. Gather achievements + player progress
     achievements = Achievement.query.filter_by(game_id=game_id).order_by(
-        Achievement.global_percent.asc()
+        Achievement.global_percent.desc()
     ).all()
 
     player_achs = PlayerAchievement.query.filter_by(player_id=request.player_id).all()

@@ -301,10 +301,10 @@ export default function GameDetailPage() {
               <h3 className="text-sm font-medium text-gray-400 mb-3">Rarity Breakdown</h3>
               <div className="space-y-2">
                 {[
-                  { tier: 'ultra-rare', label: 'Ultra Rare (<5%)', color: 'bg-purple-500' },
-                  { tier: 'rare', label: 'Rare (<15%)', color: 'bg-amber-500' },
-                  { tier: 'uncommon', label: 'Uncommon (<30%)', color: 'bg-blue-500' },
-                  { tier: 'common', label: 'Common (30%+)', color: 'bg-gray-500' },
+                   { tier: 'common',    label: 'Common (30%+)',    color: 'bg-gray-500' },
+                   { tier: 'uncommon',  label: 'Uncommon (<30%)',  color: 'bg-blue-500' },
+                   { tier: 'rare',      label: 'Rare (<15%)',      color: 'bg-amber-500' },
+                   { tier: 'ultra-rare',label: 'Ultra Rare (<5%)', color: 'bg-purple-500' },
                 ].map(({ tier, label, color }) => {
                   const count = achievements.filter((a) => a.rarity_tier === tier).length
                   return (

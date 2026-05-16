@@ -45,9 +45,6 @@ export default function DashboardPage() {
 
       setPlayerGames(playerGamesWithAchievements)
 
-      // Load recent achievements from ALL tracked games
-      // Run all fetches in parallel, then take the 3 most recent per game
-      // so no single game crowds out the others in the combined sorted list
       const tracked = pgData.filter((pg) => pg.is_tracked)
       const perGameResults = await Promise.all(
         tracked.map(async (pg) => {

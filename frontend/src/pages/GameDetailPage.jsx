@@ -29,6 +29,7 @@ export default function GameDetailPage() {
   const [discovering, setDiscovering] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [selectedAchievement, setSelectedAchievement] = useState(null)
+  const [tipCache, setTipCache] = useState({}) // achievement.id → tip_md
 
   useEffect(() => {
     loadData()
@@ -215,21 +216,6 @@ export default function GameDetailPage() {
               <HiArrowPath className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Syncing...' : 'Sync'}
             </button>
-            <button
-              onClick={handleGenerateAI}
-              disabled={generating}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-sm rounded-lg border border-purple-500/30 transition-colors disabled:opacity-50"
-            >
-              <HiSparkles className={`w-4 h-4 ${generating ? 'animate-pulse' : ''}`} />
-              {generating ? 'Generating...' : 'AI Optimize'}
-            </button>
-            <Link
-              to={`/games/${gameId}/optimize`}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-surface border border-gray-700 text-gray-300 text-sm rounded-lg hover:border-gray-600 transition-colors"
-            >
-              <HiEye className="w-4 h-4" />
-              View Guide
-            </Link>
           </div>
         </div>
       </div>
@@ -433,6 +419,12 @@ export default function GameDetailPage() {
           unlockTime={selectedAchievement.unlockTime}
           isTracked={playerGame?.is_tracked || false}
           onClose={() => setSelectedAchievement(null)}
+          initialTip={tipCache[selectedAchievement.achievement.id] || null}
+          onTipGenerated={(achId, tipMd) =>
+            setTipCache((prev) => ({ ...prev, [achId]: tipMd }))
+          }
+          game={game}
+          dataSources={dataSources}
         />
       )}
     </Layout>

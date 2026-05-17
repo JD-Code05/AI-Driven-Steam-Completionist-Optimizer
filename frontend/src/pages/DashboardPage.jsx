@@ -187,10 +187,10 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ROW 3: Recent Achievements (left) + AI CTA (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bottom-left: Recent Achievements Timeline */}
-        <div className="lg:col-span-2 bg-surface-light rounded-xl border border-gray-800 p-6">
+      {/* ROW 3: Recent Achievements (full width when tracked, or 2/3 + AI CTA) */}
+      <div className={trackedGames.length > 0 ? 'grid grid-cols-1 gap-6' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}>
+        {/* Recent Achievements — full width when games are tracked */}
+        <div className={trackedGames.length > 0 ? 'bg-surface-light rounded-xl border border-gray-800 p-6' : 'lg:col-span-2 bg-surface-light rounded-xl border border-gray-800 p-6'}>
           <h2 className="text-lg font-semibold text-white mb-4">Recent Achievements</h2>
           {recentAchievements.length > 0 ? (
             <div className="space-y-2">
@@ -218,30 +218,22 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Bottom-right: AI Optimization CTA */}
-        <div className="bg-gradient-to-br from-purple-900/20 to-steam-dark rounded-xl border border-purple-500/20 p-6 flex flex-col justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-500/10 rounded-full border border-purple-500/20 mb-4">
-              <HiCpuChip className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-medium text-purple-400">AI Powered</span>
+        {/* Achievement Optimizer CTA — hidden once user has tracked games */}
+        {trackedGames.length === 0 && (
+          <div className="bg-gradient-to-br from-purple-900/20 to-steam-dark rounded-xl border border-purple-500/20 p-6 flex flex-col justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-500/10 rounded-full border border-purple-500/20 mb-4">
+                <HiCpuChip className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-medium text-purple-400">AI Powered</span>
+              </div>
+              <h2 className="text-lg font-semibold text-white mb-2">Achievement Optimizer</h2>
+              <p className="text-sm text-gray-400 mb-6">
+                Get AI-generated optimization routes tailored to your progress. Find the fastest path to 100% completion.
+              </p>
             </div>
-            <h2 className="text-lg font-semibold text-white mb-2">Achievement Optimizer</h2>
-            <p className="text-sm text-gray-400 mb-6">
-              Get AI-generated optimization routes tailored to your progress. Find the fastest path to 100% completion.
-            </p>
-          </div>
-          {trackedGames.length > 0 ? (
-            <Link
-              to={`/games/${trackedGames[0]?.game?.id}`}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 font-medium rounded-lg transition-colors text-sm"
-            >
-              <HiSparkles className="w-4 h-4" />
-              Optimize a Game
-            </Link>
-          ) : (
             <p className="text-xs text-gray-600">Track a game to enable AI optimization</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Modal: All Games */}

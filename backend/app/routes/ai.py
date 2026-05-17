@@ -29,6 +29,16 @@ def get_achievement_tip(achievement_id):
     ).first()
     already_unlocked = pa.unlocked if pa else False
 
+    sources_context = ""
+    # Hardcoded fallback RAG context for Stardew Valley showcasing
+    if game.app_id == 413150:
+        from ..services.scraper import ScraperService
+        scraper = ScraperService()
+        logger.info("Stardew Valley detected. Scraping Stardew Valley Wiki for RAG context...")
+        result = scraper.scrape_url("https://stardewvalleywiki.com/Achievements")
+        if result.get('content'):
+            sources_context = f"### Source: Stardew Valley Wiki (https://stardewvalleywiki.com/Stardew_Valley_Wiki)\n\n{result['content']}"
+
     # Build a focused, concise prompt for this one achievement
     status_str = "already unlocked ✅" if already_unlocked else "not yet unlocked 🔒"
     user_prompt = (
@@ -39,6 +49,13 @@ def get_achievement_tip(achievement_id):
         f"  - Global Unlock Rate: {achievement.global_percent}% ({achievement.rarity_tier})\n"
         f"  - Player Status: {status_str}\n\n"
     )
+
+    if sources_context:
+        user_prompt += (
+            "## Reference Materials (scraped from Stardew Valley Wiki)\n"
+            "Use the information below to give specific, actionable advice:\n\n"
+            + sources_context + "\n\n---\n"
+        )
 
     user_prompt += (
         "Based on the above, provide a focused guide for this single achievement.\n\n"

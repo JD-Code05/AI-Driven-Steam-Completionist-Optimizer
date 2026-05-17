@@ -218,9 +218,18 @@ export default function AchievementDetailModal({
                 <div>
                   {/* AI guide header */}
                   <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <HiSparkles className="w-4 h-4 text-purple-400" />
                       <span className="text-sm font-semibold text-white">AI Guide</span>
+                      {game?.app_id === 413150 ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/20 ml-1">
+                          Scraped Stardew Wiki + Gemini AI
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/20 ml-1">
+                          Gemini AI Only
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={handleGetTip}

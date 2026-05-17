@@ -156,6 +156,99 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── COMPLETIONIST SHOWCASE (Steam-style) ── */}
+      {(() => {
+        const completedGames = playerGames.filter(
+          (pg) => pg.totalAchievements > 0 && pg.unlockedCount === pg.totalAchievements
+        )
+        if (completedGames.length === 0) return null
+        const totalPerfectAchievements = completedGames.reduce((sum, pg) => sum + pg.totalAchievements, 0)
+
+        return (
+          <div className="mb-6 bg-surface-light rounded-xl border border-gray-800 overflow-hidden">
+            {/* Card header */}
+            <div className="px-5 pt-4 pb-3 border-b border-gray-800">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                🏆 Completionist Showcase
+              </h2>
+            </div>
+
+            {/* Horizontal game artwork row */}
+            <div className="flex gap-3 overflow-x-auto px-4 pt-4 pb-0 scrollbar-hide">
+              {completedGames.map((pg) => {
+                // Prefer Steam header.jpg (460×215) for the wider showcase look
+                const headerImg = pg.game?.app_id
+                  ? `https://cdn.akamai.steamstatic.com/steam/apps/${pg.game.app_id}/header.jpg`
+                  : pg.game?.img_capsule_url
+
+                return (
+                  <Link
+                    key={pg.id}
+                    to={`/games/${pg.game?.id}`}
+                    className="relative shrink-0 group rounded-lg overflow-hidden"
+                    style={{ width: '230px', height: '108px' }}
+                    title={pg.game?.name}
+                  >
+                    {/* Game artwork */}
+                    {headerImg ? (
+                      <img
+                        src={headerImg}
+                        alt={pg.game?.name}
+                        className="w-full h-full object-cover group-hover:brightness-110 transition-all duration-300"
+                        onError={(e) => {
+                          // fallback to capsule then hide
+                          if (e.target.src !== pg.game?.img_capsule_url) {
+                            e.target.src = pg.game?.img_capsule_url || ''
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                        <HiTrophy className="w-8 h-8 text-amber-400" />
+                      </div>
+                    )}
+
+                    {/* Steam-blue achievement bar at the bottom */}
+                    <div
+                      className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2.5 py-1.5"
+                      style={{ background: 'rgba(27, 67, 124, 0.93)' }}
+                    >
+                      <span className="text-white text-sm font-medium leading-none">
+                        {pg.unlockedCount} / {pg.totalAchievements} Achievements
+                      </span>
+
+                      {/* Rosette / medal badge */}
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                        style={{
+                          background: 'radial-gradient(circle at 40% 35%, #60a5fa, #1d4ed8 70%)',
+                          border: '1.5px solid #93c5fd',
+                          boxShadow: '0 0 8px rgba(96,165,250,0.7)',
+                        }}
+                      >
+                        ★
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+
+            {/* Stats footer row */}
+            <div className="border-t border-gray-800 px-5 py-3 flex gap-8">
+              <div>
+                <p className="text-2xl font-bold text-white">{completedGames.length}</p>
+                <p className="text-sm text-gray-400">Perfect Games</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{totalPerfectAchievements}</p>
+                <p className="text-sm text-gray-400">Achievements in Perfect Games</p>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ROW 2 (diagonal): Tracked Games Grid */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">

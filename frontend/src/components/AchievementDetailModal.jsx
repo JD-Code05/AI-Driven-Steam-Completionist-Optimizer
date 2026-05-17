@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { aiAPI } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import RarityBadge from './RarityBadge'
 import AchievementTipRenderer from './AchievementTipRenderer'
 import { parseAchievementTip } from '../utils/achievementTipParser'
@@ -20,10 +21,24 @@ export default function AchievementDetailModal({
   game,             // game object for app_id + name (for resource links)
   dataSources,      // existing scraped sources for this game
 }) {
+  const { player } = useAuth()
   const [tipRaw, setTipRaw] = useState(initialTip || null)
   const [tipParsed, setTipParsed] = useState(initialTip ? parseAchievementTip(initialTip) : null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Load cached tip from localStorage on mount or when achievement/player changes
+  useEffect(() => {
+    if (!player || !achievement) return
+
+    const cacheKey = `achievement-tip-${player.id}-${achievement.id}`
+    const cachedTip = localStorage.getItem(cacheKey)
+
+    if (cachedTip && !initialTip) {
+      setTipRaw(cachedTip)
+      setTipParsed(parseAchievementTip(cachedTip))
+    }
+  }, [player?.id, achievement?.id, initialTip])
 
   // Close on Escape key
   useEffect(() => {
@@ -39,6 +54,13 @@ export default function AchievementDetailModal({
       const { data } = await aiAPI.getAchievementTip(achievement.id)
       setTipRaw(data.tip_md)
       setTipParsed(parseAchievementTip(data.tip_md))
+
+      // Save to localStorage for persistence
+      if (player) {
+        const cacheKey = `achievement-tip-${player.id}-${achievement.id}`
+        localStorage.setItem(cacheKey, data.tip_md)
+      }
+
       onTipGenerated?.(achievement.id, data.tip_md)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate tip. Try again.')
@@ -69,8 +91,11 @@ export default function AchievementDetailModal({
       />
 
       {/* Centered dialog */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div 
+          className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
 
           {/* Sticky header */}
           <div className="bg-gray-900/95 backdrop-blur border-b border-gray-800 px-6 py-4 flex items-center justify-between shrink-0">

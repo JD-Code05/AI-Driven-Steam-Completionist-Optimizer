@@ -51,6 +51,17 @@ export function AuthProvider({ children }) {
     try {
       await authAPI.logout()
     } catch { /* ignore */ }
+    
+    // Clear all achievement tips from localStorage for current player
+    const keysToDelete = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('achievement-tip-')) {
+        keysToDelete.push(key)
+      }
+    }
+    keysToDelete.forEach(key => localStorage.removeItem(key))
+    
     localStorage.removeItem('token')
     setPlayer(null)
     navigate('/login')

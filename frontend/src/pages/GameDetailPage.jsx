@@ -33,7 +33,48 @@ export default function GameDetailPage() {
 
   useEffect(() => {
     loadData()
+    // Restore filter from localStorage when game changes
+    const savedFilter = localStorage.getItem(`game-${gameId}-filter`) || 'all'
+    setFilter(savedFilter)
   }, [gameId])
+
+  // Restore selected achievement from localStorage after data loads
+  useEffect(() => {
+    console.log('Restoration effect triggered. achievements:', achievements.length, 'playerAchs:', playerAchs.length)
+    if (achievements.length > 0 && playerAchs.length > 0) {
+      const savedAchievementId = localStorage.getItem(`game-${gameId}-selected-achievement`)
+      console.log('Saved achievement ID from localStorage:', savedAchievementId)
+      if (savedAchievementId) {
+        const achId = parseInt(savedAchievementId)
+        const ach = achievements.find(a => a.id === achId)
+        console.log('Found achievement:', ach)
+        if (ach) {
+          const pa = playerAchs.find(pa => pa.achievement_id === achId)
+          console.log('Restoring achievement:', achId, 'with player data:', pa)
+          setSelectedAchievement({
+            achievement: ach,
+            unlocked: pa?.unlocked || false,
+            unlockTime: pa?.unlock_time || null,
+          })
+        }
+      }
+    }
+  }, [achievements, playerAchs, gameId])
+
+  // Save selected achievement to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedAchievement) {
+      console.log('Saving effect - saving achievement:', selectedAchievement.achievement.id)
+      localStorage.setItem(`game-${gameId}-selected-achievement`, selectedAchievement.achievement.id)
+    }
+    // Note: Don't clear localStorage here - only clear in onClose handler to prevent race conditions
+  }, [selectedAchievement, gameId])
+
+  // Save filter to localStorage whenever it changes
+  useEffect(() => {
+    console.log('Saving filter to localStorage:', filter)
+    localStorage.setItem(`game-${gameId}-filter`, filter)
+  }, [filter, gameId])
 
   async function loadData() {
     setLoading(true)
@@ -254,11 +295,16 @@ export default function GameDetailPage() {
                   achievement={ach}
                   unlocked={paMap[ach.id]?.unlocked || false}
                   unlockTime={paMap[ach.id]?.unlock_time}
-                  onClick={() => setSelectedAchievement({
-                    achievement: ach,
-                    unlocked: paMap[ach.id]?.unlocked || false,
-                    unlockTime: paMap[ach.id]?.unlock_time || null,
-                  })}
+                  onClick={() => {
+                    const selectedAch = {
+                      achievement: ach,
+                      unlocked: paMap[ach.id]?.unlocked || false,
+                      unlockTime: paMap[ach.id]?.unlock_time || null,
+                    }
+                    console.log('Achievement clicked, saving to localStorage:', ach.id)
+                    localStorage.setItem(`game-${gameId}-selected-achievement`, ach.id)
+                    setSelectedAchievement(selectedAch)
+                  }}
                 />
               ))
             ) : (
@@ -418,7 +464,11 @@ export default function GameDetailPage() {
           unlocked={selectedAchievement.unlocked}
           unlockTime={selectedAchievement.unlockTime}
           isTracked={playerGame?.is_tracked || false}
-          onClose={() => setSelectedAchievement(null)}
+          onClose={() => {
+            console.log('Modal closed, clearing localStorage')
+            localStorage.removeItem(`game-${gameId}-selected-achievement`)
+            setSelectedAchievement(null)
+          }}
           initialTip={tipCache[selectedAchievement.achievement.id] || null}
           onTipGenerated={(achId, tipMd) =>
             setTipCache((prev) => ({ ...prev, [achId]: tipMd }))

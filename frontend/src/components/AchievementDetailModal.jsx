@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import ReactMarkdown from 'react-markdown'
 import { aiAPI } from '../services/api'
 import RarityBadge from './RarityBadge'
+import AchievementTipRenderer from './AchievementTipRenderer'
+import { parseAchievementTip } from '../utils/achievementTipParser'
 import {
   HiXMark, HiLockOpen, HiLockClosed, HiSparkles, HiArrowPath,
   HiTrophy, HiGlobeAlt, HiPlayCircle, HiBookOpen, HiLink,
@@ -19,7 +20,8 @@ export default function AchievementDetailModal({
   game,             // game object for app_id + name (for resource links)
   dataSources,      // existing scraped sources for this game
 }) {
-  const [tip, setTip] = useState(initialTip || null)
+  const [tipRaw, setTipRaw] = useState(initialTip || null)
+  const [tipParsed, setTipParsed] = useState(initialTip ? parseAchievementTip(initialTip) : null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -35,7 +37,8 @@ export default function AchievementDetailModal({
     setError(null)
     try {
       const { data } = await aiAPI.getAchievementTip(achievement.id)
-      setTip(data.tip_md)
+      setTipRaw(data.tip_md)
+      setTipParsed(parseAchievementTip(data.tip_md))
       onTipGenerated?.(achievement.id, data.tip_md)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate tip. Try again.')
@@ -147,7 +150,7 @@ export default function AchievementDetailModal({
 
             {/* AI Tip Section */}
             <div className="px-6 py-6">
-              {!tip && !loading && (
+              {!tipParsed && !loading && (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4">
                     <HiSparkles className="w-7 h-7 text-purple-400" />
@@ -190,10 +193,10 @@ export default function AchievementDetailModal({
                 </div>
               )}
 
-              {tip && (
+              {tipParsed && (
                 <div>
                   {/* AI guide header */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                       <HiSparkles className="w-4 h-4 text-purple-400" />
                       <span className="text-sm font-semibold text-white">AI Guide</span>
@@ -209,19 +212,8 @@ export default function AchievementDetailModal({
                     </button>
                   </div>
 
-                  {/* Markdown tip content */}
-                  <div className="prose prose-invert prose-sm max-w-none
-                    prose-headings:text-white prose-headings:font-bold
-                    prose-h2:text-base prose-h3:text-sm
-                    prose-p:text-gray-300 prose-p:leading-relaxed prose-p:text-sm
-                    prose-li:text-gray-300 prose-li:text-sm
-                    prose-strong:text-white
-                    prose-code:text-purple-300 prose-code:bg-purple-900/20 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-                    prose-blockquote:border-l-2 prose-blockquote:border-steam-blue prose-blockquote:text-gray-400
-                    prose-hr:border-gray-700
-                  ">
-                    <ReactMarkdown>{tip}</ReactMarkdown>
-                  </div>
+                  {/* Structured tip renderer */}
+                  <AchievementTipRenderer parsedTip={tipParsed} />
 
                   {/* ── Resources section ── */}
                   <div className="mt-6 pt-5 border-t border-gray-800">

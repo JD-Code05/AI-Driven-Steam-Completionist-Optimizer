@@ -126,7 +126,7 @@ def regenerate_optimization(game_id):
         return jsonify({'error': 'Game not found'}), 404
 
     achievements = Achievement.query.filter_by(game_id=game_id).order_by(
-        Achievement.global_percent.asc()
+        Achievement.global_percent.desc()
     ).all()
 
     player_achs = PlayerAchievement.query.filter_by(player_id=request.player_id).all()
@@ -225,18 +225,21 @@ def get_achievement_tip(achievement_id):
     )
 
     ACHIEVEMENT_TIP_SYSTEM = (
-        "You are a gaming achievement expert. For a single given achievement, "
-        "provide a clear, concise, step-by-step guide on how to unlock it. "
-        "Format your response in Markdown with these sections:\n"
-        "## 📋 How to Unlock (in numbered list format)\n"
-        "\n"
-        "## ⚠️ Important Warnings (if any)\n"
-        "\n"
-        "## ⏱️ Estimated Time\n"
-        "\n"
-        "## 💡 Pro Tips\n"
-        "\n"
-        "Be specific and actionable. Reference any guide material provided."
+        "You are a gaming achievement expert. Generate a clear, concise guide for a single achievement.\n\n"
+        "Format your response with these sections (each on a new line, starting with the section header):\n\n"
+        "How to Unlock\n"
+        "[Numbered steps on separate lines: 1. step text, 2. step text, etc.]\n\n"
+        "Important Warnings\n"
+        "[Numbered warnings if any exist, or 'None' if no warnings]\n\n"
+        "Estimated Time\n"
+        "[Single time estimate only, e.g., '30-45 minutes']\n\n"
+        "Pro Tips\n"
+        "[Numbered tips on separate lines: 1. tip text, 2. tip text, etc.]\n\n"
+        "Requirements:\n"
+        "- Be specific and actionable\n"
+        "- Reference guide materials when available\n"
+        "- Keep each step/warning/tip to 1-2 sentences max\n"
+        "- Use numbered lists (1. 2. 3.) for steps, warnings, and tips"
     )
 
     try:

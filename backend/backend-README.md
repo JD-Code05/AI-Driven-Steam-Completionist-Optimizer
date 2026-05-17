@@ -41,8 +41,7 @@ The backend follows the **Flask App Factory** pattern. All business logic is sep
 | gunicorn | 23.0.0 | Production WSGI server |
 | requests | 2.32.3 | HTTP client for Steam API calls |
 | beautifulsoup4 | 4.13.4 | HTML parsing for web scraping |
-| selenium | 4.32.0 | Headless Chrome for dynamic pages |
-| youtube-transcript-api | 1.0.3 | YouTube transcript extraction |
+
 | google-generativeai | 0.8.5 | Gemini AI SDK |
 | marshmallow | 3.26.1 | Data serialization |
 
@@ -134,7 +133,7 @@ All models live in `app/models/` and share these conventions:
 | **PlayerGame** | `player_games` | `player_id`, `game_id`, `playtime_hours`, `is_tracked` | Junction table with unique constraint on (player_id, game_id) |
 | **Achievement** | `achievements` | `game_id`, `api_name`, `global_percent` | Computed `rarity_tier` property: <5% ultra-rare, <15% rare, <30% uncommon, else common |
 | **PlayerAchievement** | `player_achievements` | `player_id`, `achievement_id`, `unlocked`, `unlock_time` | Unique constraint on (player_id, achievement_id) |
-| **DataSource** | `data_sources` | `game_id`, `url`, `source_type`, `scraped_content` | Types: wiki, article, blog, youtube, other |
+| **DataSource** | `data_sources` | `game_id`, `url`, `source_type`, `scraped_content` | Types: wiki, article, blog, steam_guide, other |
 | **OptimizationRoute** | `optimization_routes` | `player_id`, `game_id`, `summary_md`, `prompt_hash` | `prompt_hash` enables deduplication |
 
 ### Rarity Tiers
@@ -177,9 +176,8 @@ Every CRUD blueprint follows this pattern:
 - `GET /routes/<game_id>` → Returns latest cached optimization route
 - `POST /regenerate/<game_id>` → Force re-scrapes all sources and regenerates route (ignores cache)
 
-**`data_sources.py`** — Guide Sources (CRUD + extras)
+**`data_sources.py`** — Guide Sources (CRUD + scrape)
 - `POST /<id>/scrape` → Scrapes or re-scrapes a single data source URL
-- `POST /auto-discover/<game_id>` → Searches Google for achievement guides, creates DataSource records for discovered URLs
 
 ---
 
@@ -203,13 +201,13 @@ Scrapes web content for the AI RAG pipeline:
 
 | Method | Description |
 |--------|-------------|
-| `scrape_url(url)` | Auto-detects YouTube vs regular page, returns `{title, content, error}` |
-| `auto_discover_sources(game_name)` | Searches Google for "{game_name} achievement guide", returns up to 5 results |
+| `scrape_url(url)` | Scrapes web pages and Steam guides, returns `{title, content, error}` |
+| `scrape_steam_guides(app_id, achievement_name)` | Searches and scrapes Steam community guides for achievement context, returns list of guides |
 
 **Internal details:**
-- Regular pages: Uses `requests` + `BeautifulSoup`, strips nav/header/footer/script tags, extracts main content area, truncates at 50K chars
-- YouTube: Fetches page metadata (title, description) + extracts transcript via `youtube-transcript-api`, prefers manual English transcripts, falls back to auto-generated
-- Source validation: Filters out Google/Facebook/Twitter domains; detects source type from URL (youtube → "youtube", wiki domains → "wiki", etc.)
+- Web pages: Uses `requests` + `BeautifulSoup`, strips nav/header/footer/script tags, extracts main content area, truncates at 50K chars
+- Steam guides: Searches `https://steamcommunity.com/app/{app_id}/guides/?searchtext={achievement_name}`, scrapes individual guide pages, truncates content at 10K chars per guide
+- Source validation: Detects source type from URL (steam guide → "steam_guide", wiki domains → "wiki", etc.)
 
 ### `GeminiService` — `services/gemini.py`
 
@@ -314,14 +312,12 @@ The server starts on `http://localhost:5000`. You need a running MySQL 8.0 insta
 ## Docker
 
 The Dockerfile uses `python:3.11-slim` as the base image and installs:
-- **Chromium + ChromeDriver** for Selenium-based scraping
+- Essential build tools: `gcc`, `default-libmysqlclient-dev`, `pkg-config`
 - All Python dependencies from `requirements.txt`
 
 **Production command:** `gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 wsgi:app`
 
 Key environment variables are set:
-- `CHROME_BIN=/usr/bin/chromium`
-- `CHROMEDRIVER_PATH=/usr/bin/chromedriver`
 - `PYTHONDONTWRITEBYTECODE=1`
 - `PYTHONUNBUFFERED=1`
 

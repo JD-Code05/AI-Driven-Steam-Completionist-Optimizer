@@ -61,14 +61,13 @@ export const playerAchievementsAPI = {
   list: (playerId, gameId) => api.get('/player-achievements', { params: { player_id: playerId, game_id: gameId } }),
 }
 
-// Data Sources
+// Bookmarks
 export const dataSourcesAPI = {
   list: (gameId) => api.get('/data-sources', { params: { game_id: gameId } }),
   create: (data) => api.post('/data-sources', data),
   update: (id, data) => api.put(`/data-sources/${id}`, data),
   delete: (id) => api.delete(`/data-sources/${id}`),
   scrape: (id) => api.post(`/data-sources/${id}/scrape`),
-  autoDiscover: (gameId) => api.post(`/data-sources/auto-discover/${gameId}`),
 }
 
 // AI

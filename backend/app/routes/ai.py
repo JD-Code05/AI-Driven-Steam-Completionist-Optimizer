@@ -39,10 +39,12 @@ def generate_optimization(game_id):
     if not achievements:
         return jsonify({'error': 'No achievements found. Sync achievements first.'}), 400
 
-    # 2. Gather and scrape data sources
+    # 2. Gather and scrape bookmarks (user-provided + auto-discovered Steam guides)
     data_sources = DataSource.query.filter_by(game_id=game_id).all()
 
     scraper = ScraperService()
+    
+    # Scrape user-provided sources
     for source in data_sources:
         if not source.scraped_content:
             result = scraper.scrape_url(source.url)
@@ -50,7 +52,36 @@ def generate_optimization(game_id):
                 source.scraped_content = result['content']
                 source.title = source.title or result.get('title')
                 source.last_scraped = datetime.now(timezone.utc)
+    
     db.session.commit()
+    
+    # Auto-discover comprehensive Steam Community Guides (Broad-to-Narrow strategy)
+    # These will provide rich context for Gemini to extract achievement-specific details
+    logger.info(f"Auto-discovering comprehensive Steam guides for {game.name}...")
+    steam_guides = scraper.scrape_steam_guides(game.steam_app_id, game.name, max_results=3)
+    
+    # Keep track of user-provided source IDs for later
+    user_provided_source_ids = [s.id for s in data_sources]
+    
+    for guide in steam_guides:
+        # Check if this guide is already in our data sources
+        existing = DataSource.query.filter_by(
+            game_id=game_id,
+            url=guide['url']
+        ).first()
+        
+        if not existing and guide.get('content'):
+            # Create a temporary data source for this guide (not saved to DB)
+            temp_source = DataSource(
+                game_id=game_id,
+                url=guide['url'],
+                title=guide.get('title', 'Steam Community Guide'),
+                source_type='steam_guide',
+                scraped_content=guide['content'],
+                last_scraped=datetime.now(timezone.utc),
+            )
+            data_sources.append(temp_source)
+            logger.info(f"Added auto-discovered guide: {guide.get('title')}")
 
     # 3. Build context strings
     achievements_context = GeminiService.format_achievements_context(achievements, pa_map)
@@ -82,13 +113,12 @@ def generate_optimization(game_id):
     except Exception as e:
         return jsonify({'error': f'AI generation failed: {str(e)}'}), 500
 
-    # 6. Save result
-    source_ids = [s.id for s in data_sources if s.scraped_content]
+    # 6. Save result (only include user-provided source IDs, not auto-discovered ones)
     route = OptimizationRoute(
         player_id=request.player_id,
         game_id=game_id,
         summary_md=result['summary_md'],
-        source_ids_used=source_ids,
+        source_ids_used=user_provided_source_ids,
         model_used=result['model_used'],
         prompt_hash=result['prompt_hash'],
     )

@@ -78,7 +78,7 @@ frontend/
     └── pages/               # Full-page components (one per route)
         ├── LoginPage.jsx        # Hero section + Steam sign-in button + feature cards
         ├── DashboardPage.jsx    # Z-pattern layout: profile, stats, games, achievements, AI CTA
-        ├── GameDetailPage.jsx   # Achievement list with filters, rarity breakdown, data sources
+        ├── GameDetailPage.jsx   # Achievement list with filters, rarity breakdown, bookmarks
         └── OptimizationPage.jsx # AI-generated Markdown guide with generate/regenerate buttons
 ```
 
@@ -121,7 +121,7 @@ Includes a **"Sync Games"** button to import the player's Steam library.
 - **Sidebar:**
   - Completion ring for this game
   - Rarity breakdown (color-coded counts per tier)
-  - Data sources panel (add/delete/scrape/auto-discover)
+  - Bookmarks panel (add/delete/scrape/auto-discover)
   - AI optimize and view guide buttons
 - **Sync button:** Fetches latest achievements from Steam
 - **Auto-Discover:** Searches Google for guide URLs and creates data source records

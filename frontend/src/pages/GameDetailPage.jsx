@@ -26,7 +26,6 @@ export default function GameDetailPage() {
   const [filter, setFilter] = useState('all') // all | locked | unlocked
   const [showAddSource, setShowAddSource] = useState(false)
   const [newSource, setNewSource] = useState({ url: '', title: '', source_type: 'other' })
-  const [discovering, setDiscovering] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [selectedAchievement, setSelectedAchievement] = useState(null)
   const [tipCache, setTipCache] = useState({}) // achievement.id → tip_md
@@ -150,17 +149,6 @@ export default function GameDetailPage() {
     }
   }
 
-  async function handleAutoDiscover() {
-    setDiscovering(true)
-    try {
-      const { data } = await dataSourcesAPI.autoDiscover(gameId)
-      setDataSources(data.sources || [])
-    } catch (err) {
-      console.error('Auto-discover failed:', err)
-    } finally {
-      setDiscovering(false)
-    }
-  }
 
   async function handleScrapeSource(sourceId) {
     try {
@@ -323,14 +311,14 @@ export default function GameDetailPage() {
         <div className="space-y-6">
           {/* Completion Ring */}
           <div className="bg-surface-light rounded-xl border border-gray-800 p-6 flex flex-col items-center">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Completion</h3>
+            <h3 className="text-m font-bold text-white-400 mb-3">Completion</h3>
             <ProgressRing value={unlockedCount} max={Math.max(totalCount, 1)} size={130} />
           </div>
 
           {/* Rarity Breakdown */}
           {achievements.length > 0 && (
             <div className="bg-surface-light rounded-xl border border-gray-800 p-6">
-              <h3 className="text-sm font-medium text-gray-400 mb-3">Rarity Breakdown</h3>
+              <h3 className="text-m font-bold text-white-400 mb-3">Rarity Breakdown</h3>
               <div className="space-y-2">
                 {[
                    { tier: 'common',    label: 'Common (30%+)',    color: 'bg-gray-500' },
@@ -351,26 +339,16 @@ export default function GameDetailPage() {
             </div>
           )}
 
-          {/* Data Sources */}
+          {/* Bookmarks */}
           <div className="bg-surface-light rounded-xl border border-gray-800 p-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-400">Data Sources</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleAutoDiscover}
-                  disabled={discovering}
-                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
-                  title="Auto-discover guides"
-                >
-                  {discovering ? <HiArrowPath className="w-3.5 h-3.5 animate-spin" /> : 'Discover'}
-                </button>
-                <button
-                  onClick={() => setShowAddSource(!showAddSource)}
-                  className="text-steam-accent hover:text-white transition-colors"
-                >
-                  {showAddSource ? <HiXMark className="w-4 h-4" /> : <HiPlus className="w-4 h-4" />}
-                </button>
-              </div>
+              <h3 className="text-m font-bold text-white-400">Bookmarks</h3>
+              <button
+                onClick={() => setShowAddSource(!showAddSource)}
+                className="text-steam-accent hover:text-white transition-colors"
+              >
+                {showAddSource ? <HiXMark className="w-4 h-4" /> : <HiPlus className="w-4 h-4" />}
+              </button>
             </div>
 
             {showAddSource && (
@@ -398,6 +376,7 @@ export default function GameDetailPage() {
                   <option value="wiki">Wiki</option>
                   <option value="article">Article</option>
                   <option value="blog">Blog</option>
+                  <option value="steam_guide">Steam Guide</option>
                   <option value="youtube">YouTube</option>
                   <option value="other">Other</option>
                 </select>

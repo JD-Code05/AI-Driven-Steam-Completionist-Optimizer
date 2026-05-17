@@ -74,10 +74,6 @@ export default function AchievementDetailModal({
     : (achievement.icon_gray_url || achievement.icon_url)
 
   // Resource link helpers
-  const ytQuery = encodeURIComponent(
-    `${game?.name || ''} ${achievement.display_name} achievement guide`
-  )
-  const ytUrl = `https://www.youtube.com/results?search_query=${ytQuery}`
   const steamGuidesUrl = game?.app_id
     ? `https://steamcommunity.com/app/${game.app_id}/guides/?searchtext=${encodeURIComponent(achievement.display_name)}`
     : null
@@ -248,17 +244,6 @@ export default function AchievementDetailModal({
                     </h4>
 
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {/* YouTube search */}
-                      <a
-                        href={ytUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 text-xs font-medium rounded-lg border border-red-500/20 transition-colors"
-                      >
-                        <SiYoutube className="w-4 h-4" />
-                        Search on YouTube
-                      </a>
-
                       {/* Steam Community Guides */}
                       {steamGuidesUrl && (
                         <a
@@ -271,29 +256,18 @@ export default function AchievementDetailModal({
                           Steam Community Guides
                         </a>
                       )}
+                      
+                      {/* YouTube Search */}
+                      <a
+                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(game?.name + ' ' + achievement.display_name + ' Guide How to')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 text-xs font-medium rounded-lg border border-red-600/20 transition-colors"
+                      >
+                        <SiYoutube className="w-3.5 h-3.5" />
+                        YouTube
+                      </a>
                     </div>
-
-                    {/* Scraped data sources for this game */}
-                    {dataSources?.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs text-gray-600 mb-2">Saved sources for this game:</p>
-                        {dataSources.map((src) => (
-                          <a
-                            key={src.id}
-                            href={src.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 transition-colors group"
-                          >
-                            <HiLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-steam-accent shrink-0" />
-                            <span className="text-xs text-gray-300 group-hover:text-white truncate">
-                              {src.title || src.url}
-                            </span>
-                            <span className="text-xs text-gray-600 capitalize shrink-0">{src.source_type}</span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

@@ -5,7 +5,7 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a gaming achievement optimization expert. Given a player's current achievement progress, global rarity data, and reference materials scraped from guides/wikis/videos, produce a structured achievement optimization guide.
+SYSTEM_PROMPT = """You are a gaming achievement optimization expert. Given a player's current achievement progress, global rarity data, and reference materials from Steam community guides and wikis, produce a structured achievement optimization guide.
 
 Your output MUST be in Markdown format and include ALL of the following sections:
 
@@ -61,7 +61,7 @@ class GeminiService:
         Args:
             game_name: Name of the game
             achievements_context: Formatted string of player's achievement status
-            sources_context: Concatenated scraped content from data sources
+            sources_context: Concatenated scraped content from bookmarks
 
         Returns:
             dict with 'summary_md', 'prompt_hash', 'model_used'
@@ -106,7 +106,7 @@ class GeminiService:
 
         if sources_context:
             parts.append("## Reference Materials\n")
-            parts.append("The following content was scraped from achievement guides, wikis, and videos. "
+            parts.append("The following content was scraped from Steam community guides and achievement wikis. "
                          "Use this information to provide specific, actionable advice.\n\n")
             parts.append(sources_context)
             parts.append("\n")

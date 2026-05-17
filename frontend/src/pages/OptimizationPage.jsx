@@ -167,7 +167,7 @@ export default function OptimizationPage() {
           <h2 className="text-lg font-semibold text-white mb-2">No Optimization Route Yet</h2>
           <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
             Generate a personalized achievement optimization route powered by Gemini AI.
-            Make sure you've synced achievements and added data sources first.
+            Make sure you've synced achievements and added bookmarks first.
           </p>
           <div className="flex items-center justify-center gap-3">
             <button

@@ -27,7 +27,7 @@ The database stores:
 - **Player-game associations** (ownership, playtime, tracking status)
 - **Achievement definitions** with global unlock percentages
 - **Player achievement progress** (unlocked/locked status per achievement)
-- **Data sources** (scraped guide URLs and their content)
+- **Bookmarks** (scraped guide URLs and their content)
 - **AI optimization routes** (generated Markdown guides with prompt hashes for deduplication)
 
 ---
@@ -289,7 +289,7 @@ FROM achievements
 WHERE game_id = 1
 GROUP BY rarity_tier;
 
--- Find games with scraped data sources
+-- Find games with scraped bookmarks
 SELECT g.name, COUNT(ds.id) AS source_count
 FROM games g
 JOIN data_sources ds ON g.id = ds.game_id

@@ -201,13 +201,14 @@ Scrapes web content for the AI RAG pipeline:
 
 | Method | Description |
 |--------|-------------|
-| `scrape_url(url)` | Scrapes web pages and Steam guides, returns `{title, content, error}` |
-| `scrape_steam_guides(app_id, achievement_name)` | Searches and scrapes Steam community guides for achievement context, returns list of guides |
+| `scrape_url(url)` | Scrapes web pages and bookmarks, returns `{title, content, error}` |
 
 **Internal details:**
-- Web pages: Uses `requests` + `BeautifulSoup`, strips nav/header/footer/script tags, extracts main content area, truncates at 50K chars
-- Steam guides: Searches `https://steamcommunity.com/app/{app_id}/guides/?searchtext={achievement_name}`, scrapes individual guide pages, truncates content at 10K chars per guide
-- Source validation: Detects source type from URL (steam guide → "steam_guide", wiki domains → "wiki", etc.)
+- Uses `requests` + `BeautifulSoup` to fetch and parse web pages
+- Strips boilerplate tags (nav, header, footer, script, style, etc.)
+- Extracts main content area intelligently
+- Truncates content at 50K characters to avoid LLM context overflow
+- Used for user-provided bookmark URLs only (manual guide management)
 
 ### `GeminiService` — `services/gemini.py`
 

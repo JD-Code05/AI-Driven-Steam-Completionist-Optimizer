@@ -73,29 +73,3 @@ def delete_data_source(source_id):
     db.session.commit()
     return jsonify({'message': 'Data source deleted'}), 200
 
-
-@data_sources_bp.route('/<int:source_id>/scrape', methods=['POST'])
-def scrape_source(source_id):
-    """Scrape or re-scrape a single data source."""
-    source = db.session.get(DataSource, source_id)
-    if not source:
-        return jsonify({'error': 'Data source not found'}), 404
-
-    from ..services.scraper import ScraperService
-    scraper = ScraperService()
-    result = scraper.scrape_url(source.url)
-
-    if result.get('error') and not result.get('content'):
-        return jsonify({'error': f"Scraping failed: {result['error']}"}), 422
-
-    source.scraped_content = result.get('content')
-    source.title = result.get('title') or source.title
-    source.last_scraped = datetime.now(timezone.utc)
-    db.session.commit()
-
-    return jsonify({
-        'message': 'Source scraped successfully',
-        'source': source.to_dict(),
-        'content_length': len(source.scraped_content) if source.scraped_content else 0,
-    })
-

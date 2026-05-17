@@ -1,211 +1,14 @@
 import logging
-from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 import google.generativeai as genai
 from ..extensions import db
 from ..models.game import Game
 from ..models.achievement import Achievement
 from ..models.player_achievement import PlayerAchievement
-from ..models.data_source import DataSource
-from ..models.optimization_route import OptimizationRoute
-from ..services.gemini import GeminiService
-from ..services.scraper import ScraperService
 from ..utils.auth import auth_required
 
 logger = logging.getLogger(__name__)
 ai_bp = Blueprint('ai', __name__)
-
-
-@ai_bp.route('/generate/<int:game_id>', methods=['POST'])
-@auth_required
-def generate_optimization(game_id):
-    """Generate an AI optimization route for a game.
-    Scrapes sources, builds RAG context, calls Gemini, and caches the result.
-    """
-    game = db.session.get(Game, game_id)
-    if not game:
-        return jsonify({'error': 'Game not found'}), 404
-
-    force = request.args.get('force', 'false').lower() == 'true'
-
-    # 1. Gather achievements + player progress
-    achievements = Achievement.query.filter_by(game_id=game_id).order_by(
-        Achievement.global_percent.desc()
-    ).all()
-
-    player_achs = PlayerAchievement.query.filter_by(player_id=request.player_id).all()
-    pa_map = {pa.achievement_id: pa for pa in player_achs if pa.achievement_id in {a.id for a in achievements}}
-
-    if not achievements:
-        return jsonify({'error': 'No achievements found. Sync achievements first.'}), 400
-
-    # 2. Gather and scrape bookmarks (user-provided + auto-discovered Steam guides)
-    data_sources = DataSource.query.filter_by(game_id=game_id).all()
-
-    scraper = ScraperService()
-    
-    # Scrape user-provided sources
-    for source in data_sources:
-        if not source.scraped_content:
-            result = scraper.scrape_url(source.url)
-            if result.get('content'):
-                source.scraped_content = result['content']
-                source.title = source.title or result.get('title')
-                source.last_scraped = datetime.now(timezone.utc)
-    
-    db.session.commit()
-    
-    # Auto-discover comprehensive Steam Community Guides (Broad-to-Narrow strategy)
-    # These will provide rich context for Gemini to extract achievement-specific details
-    logger.info(f"Auto-discovering comprehensive Steam guides for {game.name}...")
-    steam_guides = scraper.scrape_steam_guides(game.steam_app_id, game.name, max_results=3)
-    
-    # Keep track of user-provided source IDs for later
-    user_provided_source_ids = [s.id for s in data_sources]
-    
-    for guide in steam_guides:
-        # Check if this guide is already in our data sources
-        existing = DataSource.query.filter_by(
-            game_id=game_id,
-            url=guide['url']
-        ).first()
-        
-        if not existing and guide.get('content'):
-            # Create a temporary data source for this guide (not saved to DB)
-            temp_source = DataSource(
-                game_id=game_id,
-                url=guide['url'],
-                title=guide.get('title', 'Steam Community Guide'),
-                source_type='steam_guide',
-                scraped_content=guide['content'],
-                last_scraped=datetime.now(timezone.utc),
-            )
-            data_sources.append(temp_source)
-            logger.info(f"Added auto-discovered guide: {guide.get('title')}")
-
-    # 3. Build context strings
-    achievements_context = GeminiService.format_achievements_context(achievements, pa_map)
-    sources_context = GeminiService.format_sources_context(data_sources)
-
-    # 4. Check for cached result (prompt hash dedup)
-    gemini = GeminiService()
-    test_prompt = gemini._build_user_prompt(game.name, achievements_context, sources_context)
-    prompt_hash = gemini._hash_prompt(test_prompt)
-
-    if not force:
-        existing = OptimizationRoute.query.filter_by(
-            player_id=request.player_id,
-            game_id=game_id,
-            prompt_hash=prompt_hash,
-        ).first()
-        if existing:
-            return jsonify({
-                'message': 'Using cached optimization route (same context)',
-                'cached': True,
-                'route': existing.to_dict(),
-            })
-
-    # 5. Call Gemini
-    try:
-        result = gemini.generate_optimization(game.name, achievements_context, sources_context)
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': f'AI generation failed: {str(e)}'}), 500
-
-    # 6. Save result (only include user-provided source IDs, not auto-discovered ones)
-    route = OptimizationRoute(
-        player_id=request.player_id,
-        game_id=game_id,
-        summary_md=result['summary_md'],
-        source_ids_used=user_provided_source_ids,
-        model_used=result['model_used'],
-        prompt_hash=result['prompt_hash'],
-    )
-    db.session.add(route)
-    db.session.commit()
-
-    return jsonify({
-        'message': 'Optimization route generated successfully',
-        'cached': False,
-        'route': route.to_dict(),
-    }), 201
-
-
-@ai_bp.route('/routes/<int:game_id>', methods=['GET'])
-@auth_required
-def get_optimization_route(game_id):
-    """Get the latest cached optimization route for a game."""
-    route = OptimizationRoute.query.filter_by(
-        player_id=request.player_id,
-        game_id=game_id,
-    ).order_by(OptimizationRoute.updated_at.desc()).first()
-
-    if not route:
-        return jsonify({'error': 'No optimization route found. Generate one first.'}), 404
-
-    return jsonify(route.to_dict())
-
-
-@ai_bp.route('/regenerate/<int:game_id>', methods=['POST'])
-@auth_required
-def regenerate_optimization(game_id):
-    """Force regeneration of an optimization route (ignores cache)."""
-    game = db.session.get(Game, game_id)
-    if not game:
-        return jsonify({'error': 'Game not found'}), 404
-
-    achievements = Achievement.query.filter_by(game_id=game_id).order_by(
-        Achievement.global_percent.desc()
-    ).all()
-
-    player_achs = PlayerAchievement.query.filter_by(player_id=request.player_id).all()
-    pa_map = {pa.achievement_id: pa for pa in player_achs if pa.achievement_id in {a.id for a in achievements}}
-
-    if not achievements:
-        return jsonify({'error': 'No achievements found. Sync achievements first.'}), 400
-
-    data_sources = DataSource.query.filter_by(game_id=game_id).all()
-
-    # Re-scrape all sources
-    scraper = ScraperService()
-    for source in data_sources:
-        result = scraper.scrape_url(source.url)
-        if result.get('content'):
-            source.scraped_content = result['content']
-            source.title = source.title or result.get('title')
-            source.last_scraped = datetime.now(timezone.utc)
-    db.session.commit()
-
-    achievements_context = GeminiService.format_achievements_context(achievements, pa_map)
-    sources_context = GeminiService.format_sources_context(data_sources)
-
-    try:
-        gemini = GeminiService()
-        gen_result = gemini.generate_optimization(game.name, achievements_context, sources_context)
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': f'AI generation failed: {str(e)}'}), 500
-
-    source_ids = [s.id for s in data_sources if s.scraped_content]
-    route = OptimizationRoute(
-        player_id=request.player_id,
-        game_id=game_id,
-        summary_md=gen_result['summary_md'],
-        source_ids_used=source_ids,
-        model_used=gen_result['model_used'],
-        prompt_hash=gen_result['prompt_hash'],
-    )
-    db.session.add(route)
-    db.session.commit()
-
-    return jsonify({
-        'message': 'Optimization route regenerated successfully',
-        'cached': False,
-        'route': route.to_dict(),
-    }), 201
-
 
 @ai_bp.route('/achievement-tip/<int:achievement_id>', methods=['POST'])
 @auth_required
@@ -226,10 +29,6 @@ def get_achievement_tip(achievement_id):
     ).first()
     already_unlocked = pa.unlocked if pa else False
 
-    # Gather scraped sources for the game
-    data_sources = DataSource.query.filter_by(game_id=game.id).all()
-    sources_context = GeminiService.format_sources_context(data_sources)
-
     # Build a focused, concise prompt for this one achievement
     status_str = "already unlocked ✅" if already_unlocked else "not yet unlocked 🔒"
     user_prompt = (
@@ -241,35 +40,32 @@ def get_achievement_tip(achievement_id):
         f"  - Player Status: {status_str}\n\n"
     )
 
-    if sources_context:
-        user_prompt += (
-            "## Reference Materials (scraped from guides/wikis/videos)\n"
-            "Use the information below to give specific, actionable advice:\n\n"
-            + sources_context + "\n\n---\n"
-        )
-
     user_prompt += (
-        "Based on the above, provide a focused guide for this single achievement. "
-        "Include: step-by-step instructions, any prerequisites, missable warnings, "
-        "and an estimated time to unlock. Keep it concise and practical."
+        "Based on the above, provide a focused guide for this single achievement.\n\n"
+        "IMPORTANT: Generate ALL of the following sections in this exact order:\n"
+        "1. How to Unlock - numbered steps\n"
+        "2. Time Estimate - specific time range\n"
+        "3. Important Warnings - any missable elements or prerequisites\n"
+        "4. Pro Tips - tricks for faster completion\n\n"
+        "Use markdown format with ## headers. Never skip any section."
     )
 
     ACHIEVEMENT_TIP_SYSTEM = (
         "You are a gaming achievement expert. Generate a clear, concise guide for a single achievement.\n\n"
-        "Format your response with these sections (each on a new line, starting with the section header):\n\n"
-        "How to Unlock\n"
-        "[Numbered steps on separate lines: 1. step text, 2. step text, etc.]\n\n"
-        "Important Warnings\n"
-        "[Numbered warnings if any exist, or 'None' if no warnings]\n\n"
-        "Estimated Time\n"
-        "[Single time estimate only, e.g., '30-45 minutes']\n\n"
-        "Pro Tips\n"
-        "[Numbered tips on separate lines: 1. tip text, 2. tip text, etc.]\n\n"
-        "Requirements:\n"
-        "- Be specific and actionable\n"
-        "- Reference guide materials when available\n"
-        "- Keep each step/warning/tip to 1-2 sentences max\n"
-        "- Use numbered lists (1. 2. 3.) for steps, warnings, and tips"
+        "CRITICAL: You MUST include ALL of the following sections in EXACTLY this order:\n\n"
+        "## How to Unlock\n"
+        "[Provide numbered steps (1. 2. 3. etc.) with specific, actionable instructions. Minimum 2-3 steps.]\n\n"
+        "## Time Estimate\n"
+        "[REQUIRED: Always provide a time estimate like '30-45 minutes' or '2 hours'. Must be a single estimate.]\n\n"
+        "## Important Warnings\n"
+        "[List any missable elements, point-of-no-return moments, or prerequisites. If none exist, write 'None'.]\n\n"
+        "## Pro Tips\n"
+        "[Provide 2-3 numbered tips (1. 2. 3. etc.) for faster or easier completion.]\n\n"
+        "FORMATTING REQUIREMENTS:\n"
+        "- Use markdown headers (## Header Name) for each section\n"
+        "- Use numbered lists for steps, warnings, and tips (1. 2. 3.)\n"
+        "- Keep steps/tips to 1-2 sentences each\n"
+        "- Time Estimate section MUST NOT be empty - always provide a specific time range"
     )
 
     try:

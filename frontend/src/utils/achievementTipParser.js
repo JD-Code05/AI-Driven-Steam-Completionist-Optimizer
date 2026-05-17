@@ -2,18 +2,18 @@
  * Parse raw achievement tip markdown into structured JSON
  * Expected format:
  * 
- * How to Unlock
+ * ## How to Unlock
  * 1. Step one
  * 2. Step two
  * 
- * Important Warnings
+ * ## Important Warnings
  * 1. Warning one
  * 2. Warning two
  * 
- * Estimated Time
+ * ## Time Estimate
  * 30-45 minutes
  * 
- * Pro Tips
+ * ## Pro Tips
  * 1. Tip one
  * 2. Tip two
  */
@@ -30,7 +30,7 @@ export function parseAchievementTip(tipMarkdown) {
     pro_tips: [],
   }
 
-  // Split by section headers (case-insensitive)
+  // Split by section headers (case-insensitive, with optional ## markdown prefix)
   const lines = tipMarkdown.split('\n')
   let currentSection = null
   let currentContent = []
@@ -38,26 +38,26 @@ export function parseAchievementTip(tipMarkdown) {
   for (const line of lines) {
     const trimmed = line.trim()
 
-    // Detect section header
-    if (/^how to unlock$/i.test(trimmed)) {
+    // Detect section header (handles both "## How to Unlock" and "How to Unlock")
+    if (/^#+\s*how to unlock$/i.test(trimmed) || /^how to unlock$/i.test(trimmed)) {
       if (currentSection && currentContent.length > 0) {
         saveSection(sections, currentSection, currentContent)
       }
       currentSection = 'how_to_unlock'
       currentContent = []
-    } else if (/^important warnings$/i.test(trimmed)) {
+    } else if (/^#+\s*important warnings$/i.test(trimmed) || /^important warnings$/i.test(trimmed)) {
       if (currentSection && currentContent.length > 0) {
         saveSection(sections, currentSection, currentContent)
       }
       currentSection = 'warnings'
       currentContent = []
-    } else if (/^estimated time$/i.test(trimmed)) {
+    } else if (/^#+\s*time estimate$/i.test(trimmed) || /^estimated time$/i.test(trimmed) || /^#+\s*estimated time$/i.test(trimmed)) {
       if (currentSection && currentContent.length > 0) {
         saveSection(sections, currentSection, currentContent)
       }
       currentSection = 'estimated_time'
       currentContent = []
-    } else if (/^pro tips$/i.test(trimmed)) {
+    } else if (/^#+\s*pro tips$/i.test(trimmed) || /^pro tips$/i.test(trimmed)) {
       if (currentSection && currentContent.length > 0) {
         saveSection(sections, currentSection, currentContent)
       }
@@ -81,18 +81,19 @@ export function parseAchievementTip(tipMarkdown) {
  * Save current section content to the sections object
  */
 function saveSection(sections, sectionKey, content) {
-  const text = content.join(' ').trim()
+  const text = content.join('\n').trim() // Use newline instead of space to preserve markdown structure
 
   if (sectionKey === 'how_to_unlock' || sectionKey === 'pro_tips') {
-    // Extract numbered list items
-    sections[sectionKey] = extractNumberedItems(text)
+    let items = extractNumberedItems(text)
+    if (items.length === 0 && text) items = [text]
+    sections[sectionKey] = items
   } else if (sectionKey === 'warnings') {
-    // Extract numbered warnings or check for 'None'
-    if (/^none$/i.test(text)) {
-      sections[sectionKey] = []
-    } else {
-      sections[sectionKey] = extractNumberedItems(text)
+    let items = extractNumberedItems(text)
+    if (items.length === 0 && text) {
+      // If no numbered list is found, just use the entire text as a single item
+      items = [text]
     }
+    sections[sectionKey] = items
   } else if (sectionKey === 'estimated_time') {
     // Just store the text as-is
     sections[sectionKey] = text

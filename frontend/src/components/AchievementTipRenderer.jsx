@@ -1,4 +1,5 @@
 import { HiCheckCircle, HiExclamationTriangle, HiClock, HiLightBulb } from 'react-icons/hi2'
+import ReactMarkdown from 'react-markdown'
 
 /**
  * Renders parsed achievement tip with structured sections
@@ -42,7 +43,9 @@ export default function AchievementTipRenderer({ parsedTip }) {
           <ol className="space-y-3 ml-8 list-decimal list-outside">
             {how_to_unlock.map((step, idx) => (
               <li key={idx} className="text-white text-sm">
-                {step}
+                <ReactMarkdown components={{ p: 'span', strong: 'strong', em: 'em' }}>
+                  {step}
+                </ReactMarkdown>
               </li>
             ))}
           </ol>
@@ -61,7 +64,9 @@ export default function AchievementTipRenderer({ parsedTip }) {
           <ol className="space-y-3 ml-8 list-decimal list-outside">
             {warnings.map((warning, idx) => (
               <li key={idx} className="text-white text-sm">
-                {warning}
+                <ReactMarkdown components={{ p: 'span', strong: 'strong', em: 'em' }}>
+                  {warning}
+                </ReactMarkdown>
               </li>
             ))}
           </ol>
@@ -80,7 +85,9 @@ export default function AchievementTipRenderer({ parsedTip }) {
           <ol className="space-y-3 ml-8 list-decimal list-outside">
             {pro_tips.map((tip, idx) => (
               <li key={idx} className="text-white text-sm">
-                {tip}
+                <ReactMarkdown components={{ p: 'span', strong: 'strong', em: 'em' }}>
+                  {tip}
+                </ReactMarkdown>
               </li>
             ))}
           </ol>

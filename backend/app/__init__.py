@@ -24,7 +24,6 @@ def create_app(config_class=Config):
     from .routes.achievements import achievements_bp
     from .routes.player_achievements import player_achievements_bp
     from .routes.data_sources import data_sources_bp
-    from .routes.optimization_routes import optimization_routes_bp
     from .routes.auth import auth_bp
     from .routes.sync import sync_bp
     from .routes.ai import ai_bp
@@ -36,7 +35,6 @@ def create_app(config_class=Config):
     app.register_blueprint(achievements_bp, url_prefix='/api/achievements')
     app.register_blueprint(player_achievements_bp, url_prefix='/api/player-achievements')
     app.register_blueprint(data_sources_bp, url_prefix='/api/data-sources')
-    app.register_blueprint(optimization_routes_bp, url_prefix='/api/optimization-routes')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(sync_bp, url_prefix='/api/sync')
     app.register_blueprint(ai_bp, url_prefix='/api/ai')

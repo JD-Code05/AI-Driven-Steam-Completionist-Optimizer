@@ -150,27 +150,6 @@ export default function GameDetailPage() {
   }
 
 
-  async function handleScrapeSource(sourceId) {
-    try {
-      await dataSourcesAPI.scrape(sourceId)
-      const { data } = await dataSourcesAPI.list(gameId)
-      setDataSources(data)
-    } catch (err) {
-      console.error('Scrape failed:', err)
-    }
-  }
-
-  async function handleGenerateAI() {
-    setGenerating(true)
-    try {
-      await aiAPI.generate(gameId)
-    } catch (err) {
-      console.error('AI generation failed:', err)
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   // Build lookup for player achievement status
   const paMap = {}
   playerAchs.forEach((pa) => { paMap[pa.achievement_id] = pa })
@@ -404,21 +383,9 @@ export default function GameDetailPage() {
                       </a>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-gray-600 uppercase">{source.source_type}</span>
-                        {source.has_content && (
-                          <span className="text-[10px] text-green-500">● scraped</span>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5">
-                      {!source.has_content && (
-                        <button
-                          onClick={() => handleScrapeSource(source.id)}
-                          className="text-gray-500 hover:text-steam-accent transition-colors"
-                          title="Scrape content"
-                        >
-                          <HiArrowPath className="w-3.5 h-3.5" />
-                        </button>
-                      )}
                       <button
                         onClick={() => handleDeleteSource(source.id)}
                         className="text-gray-500 hover:text-red-400 transition-colors"

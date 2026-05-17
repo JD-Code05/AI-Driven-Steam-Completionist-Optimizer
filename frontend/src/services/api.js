@@ -67,14 +67,10 @@ export const dataSourcesAPI = {
   create: (data) => api.post('/data-sources', data),
   update: (id, data) => api.put(`/data-sources/${id}`, data),
   delete: (id) => api.delete(`/data-sources/${id}`),
-  scrape: (id) => api.post(`/data-sources/${id}/scrape`),
 }
 
 // AI
 export const aiAPI = {
-  generate: (gameId) => api.post(`/ai/generate/${gameId}`),
-  getRoute: (gameId) => api.get(`/ai/routes/${gameId}`),
-  regenerate: (gameId) => api.post(`/ai/regenerate/${gameId}`),
   getAchievementTip: (achievementId) => api.post(`/ai/achievement-tip/${achievementId}`),
 }
 

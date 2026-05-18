@@ -259,7 +259,7 @@ The script will:
 
 | Service      | Access Method                                                   |
 | ------------ | --------------------------------------------------------------- |
-| **Frontend** | [http://localhost:30000](http://localhost:30000)                |
+| **Frontend** | [http://localhost:3000](http://localhost:3000)                |
 | **Backend**  | `kubectl port-forward -n steam-optimizer svc/backend 5000:5000` |
 
 ### Useful K8s commands

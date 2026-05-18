@@ -22,6 +22,8 @@ echo ""
 # -----------------------------------------------------------
 echo "[2/4] Applying namespace, configmap, and secrets..."
 kubectl apply -f k8s/namespace.yaml
+echo "Waiting for namespace to be ready before applying other resources..."
+sleep 2
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secrets.yaml
 echo "✓ Namespace and config applied"
@@ -35,7 +37,7 @@ kubectl apply -f k8s/mysql/
 echo "Waiting for MySQL to be ready..."
 kubectl wait --namespace=steam-optimizer \
   --for=condition=ready pod \
-  --selector=app=mysql \
+  --selector=app.kubernetes.io/component=database \
   --timeout=120s
 
 echo "Deploying Backend..."
@@ -43,7 +45,7 @@ kubectl apply -f k8s/backend/
 echo "Waiting for Backend to be ready..."
 kubectl wait --namespace=steam-optimizer \
   --for=condition=ready pod \
-  --selector=app=backend \
+  --selector=app.kubernetes.io/component=backend \
   --timeout=120s
 
 echo "Deploying Frontend..."
@@ -51,7 +53,7 @@ kubectl apply -f k8s/frontend/
 echo "Waiting for Frontend to be ready..."
 kubectl wait --namespace=steam-optimizer \
   --for=condition=ready pod \
-  --selector=app=frontend \
+  --selector=app.kubernetes.io/component=frontend \
   --timeout=60s
 echo "✓ All services deployed"
 echo ""

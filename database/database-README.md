@@ -22,13 +22,14 @@ The database layer provides the persistent storage for the Steam Achievement Opt
 ## Overview
 
 The database stores:
+
 - **Player profiles** synced from Steam
 - **Game metadata** (names, icons, achievement counts)
 - **Player-game associations** (ownership, playtime, tracking status)
 - **Achievement definitions** with global unlock percentages
 - **Player achievement progress** (unlocked/locked status per achievement)
-- **Bookmarks** (scraped guide URLs and their content)
-- **AI optimization routes** (generated Markdown guides with prompt hashes for deduplication)
+- **Bookmarks** (user-managed guide URLs per game)
+- **Optimization routes** (legacy table kept for schema compatibility)
 
 ---
 
@@ -64,57 +65,59 @@ players ─┬─< player_games >─── games ─┬─< achievements
 
 ### 1. `players` — Steam User Profiles
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `steam_id` | VARCHAR(20) | UNIQUE, NOT NULL | Steam 64-bit ID |
-| `persona_name` | VARCHAR(255) | | Steam display name |
-| `avatar_url` | TEXT | | Full-size avatar image URL |
-| `profile_url` | TEXT | | Steam profile page URL |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | First login time |
-| `updated_at` | TIMESTAMP | ON UPDATE CURRENT_TIMESTAMP | Last profile update |
+| Column         | Type         | Constraints                 | Description                |
+| -------------- | ------------ | --------------------------- | -------------------------- |
+| `id`           | INT          | PK, AUTO_INCREMENT          | Internal ID                |
+| `steam_id`     | VARCHAR(20)  | UNIQUE, NOT NULL            | Steam 64-bit ID            |
+| `persona_name` | VARCHAR(255) |                             | Steam display name         |
+| `avatar_url`   | TEXT         |                             | Full-size avatar image URL |
+| `profile_url`  | TEXT         |                             | Steam profile page URL     |
+| `created_at`   | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP   | First login time           |
+| `updated_at`   | TIMESTAMP    | ON UPDATE CURRENT_TIMESTAMP | Last profile update        |
 
 ### 2. `games` — Game Metadata
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `app_id` | INT | UNIQUE, NOT NULL | Steam application ID |
-| `name` | VARCHAR(255) | | Game title |
-| `img_icon_url` | TEXT | | Icon image URL from Steam CDN |
-| `img_logo_url` | TEXT | | Logo/banner image URL |
-| `total_achievements` | INT | DEFAULT 0 | Total achievement count |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | First synced time |
+| Column               | Type         | Constraints               | Description                   |
+| -------------------- | ------------ | ------------------------- | ----------------------------- |
+| `id`                 | INT          | PK, AUTO_INCREMENT        | Internal ID                   |
+| `app_id`             | INT          | UNIQUE, NOT NULL          | Steam application ID          |
+| `name`               | VARCHAR(255) |                           | Game title                    |
+| `img_icon_url`       | TEXT         |                           | Icon image URL from Steam CDN |
+| `img_logo_url`       | TEXT         |                           | Logo/banner image URL         |
+| `img_capsule_url`    | TEXT         |                           | Capsule/header image URL      |
+| `total_achievements` | INT          | DEFAULT 0                 | Total achievement count       |
+| `created_at`         | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP | First synced time             |
 
 ### 3. `player_games` — Player ↔ Game Ownership
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `player_id` | INT | FK → players.id, NOT NULL | Player reference |
-| `game_id` | INT | FK → games.id, NOT NULL | Game reference |
-| `playtime_hours` | DECIMAL(10,1) | DEFAULT 0.0 | Total playtime in hours |
-| `is_tracked` | BOOLEAN | DEFAULT FALSE | Whether the player is actively tracking this game |
-| `last_synced` | TIMESTAMP | NULLABLE | Last Steam sync time |
+| Column           | Type          | Constraints               | Description                                       |
+| ---------------- | ------------- | ------------------------- | ------------------------------------------------- |
+| `id`             | INT           | PK, AUTO_INCREMENT        | Internal ID                                       |
+| `player_id`      | INT           | FK → players.id, NOT NULL | Player reference                                  |
+| `game_id`        | INT           | FK → games.id, NOT NULL   | Game reference                                    |
+| `playtime_hours` | DECIMAL(10,1) | DEFAULT 0.0               | Total playtime in hours                           |
+| `is_tracked`     | BOOLEAN       | DEFAULT FALSE             | Whether the player is actively tracking this game |
+| `last_synced`    | TIMESTAMP     | NULLABLE                  | Last Steam sync time                              |
 
 **Unique constraint:** `(player_id, game_id)` — a player can only have one record per game.
 
 ### 4. `achievements` — Achievement Definitions
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `game_id` | INT | FK → games.id, NOT NULL | Parent game |
-| `api_name` | VARCHAR(255) | NOT NULL | Steam's internal achievement identifier |
-| `display_name` | VARCHAR(255) | | Human-readable name |
-| `description` | TEXT | | Achievement description (may be hidden) |
-| `icon_url` | TEXT | | Unlocked icon URL |
-| `icon_gray_url` | TEXT | | Locked (grayed out) icon URL |
-| `global_percent` | DECIMAL(5,2) | DEFAULT 0.00 | Global unlock percentage (0–100) |
+| Column           | Type         | Constraints             | Description                             |
+| ---------------- | ------------ | ----------------------- | --------------------------------------- |
+| `id`             | INT          | PK, AUTO_INCREMENT      | Internal ID                             |
+| `game_id`        | INT          | FK → games.id, NOT NULL | Parent game                             |
+| `api_name`       | VARCHAR(255) | NOT NULL                | Steam's internal achievement identifier |
+| `display_name`   | VARCHAR(255) |                         | Human-readable name                     |
+| `description`    | TEXT         |                         | Achievement description (may be hidden) |
+| `icon_url`       | TEXT         |                         | Unlocked icon URL                       |
+| `icon_gray_url`  | TEXT         |                         | Locked (grayed out) icon URL            |
+| `global_percent` | DECIMAL(5,2) | DEFAULT 0.00            | Global unlock percentage (0–100)        |
 
 **Unique constraint:** `(game_id, api_name)` — each achievement is unique per game.
 
 **Rarity tiers** (computed in the backend model, not stored):
+
 - `< 5%` → Ultra-Rare
 - `< 15%` → Rare
 - `< 30%` → Uncommon
@@ -122,43 +125,43 @@ players ─┬─< player_games >─── games ─┬─< achievements
 
 ### 5. `player_achievements` — Player Unlock Status
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `player_id` | INT | FK → players.id, NOT NULL | Player reference |
-| `achievement_id` | INT | FK → achievements.id, NOT NULL | Achievement reference |
-| `unlocked` | BOOLEAN | DEFAULT FALSE | Whether the player has unlocked this achievement |
-| `unlock_time` | TIMESTAMP | NULLABLE | When it was unlocked (epoch from Steam) |
+| Column           | Type      | Constraints                    | Description                                      |
+| ---------------- | --------- | ------------------------------ | ------------------------------------------------ |
+| `id`             | INT       | PK, AUTO_INCREMENT             | Internal ID                                      |
+| `player_id`      | INT       | FK → players.id, NOT NULL      | Player reference                                 |
+| `achievement_id` | INT       | FK → achievements.id, NOT NULL | Achievement reference                            |
+| `unlocked`       | BOOLEAN   | DEFAULT FALSE                  | Whether the player has unlocked this achievement |
+| `unlock_time`    | TIMESTAMP | NULLABLE                       | When it was unlocked (epoch from Steam)          |
 
 **Unique constraint:** `(player_id, achievement_id)`
 
 ### 6. `data_sources` — External Guide References
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `game_id` | INT | FK → games.id, NOT NULL | Associated game |
-| `url` | TEXT | NOT NULL | Source URL (wiki, guide, YouTube video) |
-| `title` | VARCHAR(500) | | Page/video title |
-| `source_type` | ENUM | DEFAULT 'other' | One of: `wiki`, `article`, `blog`, `youtube`, `other` |
-| `scraped_content` | LONGTEXT | | Full scraped text content |
-| `last_scraped` | TIMESTAMP | NULLABLE | When content was last scraped |
-| `is_auto` | BOOLEAN | DEFAULT FALSE | True if discovered via auto-discover |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Record creation time |
+| Column            | Type         | Constraints               | Description                                           |
+| ----------------- | ------------ | ------------------------- | ----------------------------------------------------- |
+| `id`              | INT          | PK, AUTO_INCREMENT        | Internal ID                                           |
+| `game_id`         | INT          | FK → games.id, NOT NULL   | Associated game                                       |
+| `url`             | TEXT         | NOT NULL                  | Source URL (wiki, guide, YouTube video)               |
+| `title`           | VARCHAR(500) |                           | Page/video title                                      |
+| `source_type`     | ENUM         | DEFAULT 'other'           | One of: `wiki`, `article`, `blog`, `youtube`, `other` |
+| `scraped_content` | LONGTEXT     |                           | Full scraped text content                             |
+| `last_scraped`    | TIMESTAMP    | NULLABLE                  | When content was last scraped                         |
+| `is_auto`         | BOOLEAN      | DEFAULT FALSE             | True if discovered via auto-discover                  |
+| `created_at`      | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP | Record creation time                                  |
 
 ### 7. `optimization_routes` — AI-Generated Guides
 
-| Column | Type | Constraints | Description |
-|--------|------|------------|-------------|
-| `id` | INT | PK, AUTO_INCREMENT | Internal ID |
-| `player_id` | INT | FK → players.id, NOT NULL | Player who requested the route |
-| `game_id` | INT | FK → games.id, NOT NULL | Target game |
-| `summary_md` | LONGTEXT | | Generated Markdown optimization guide |
-| `source_ids_used` | JSON | | Array of data_source IDs used in generation |
-| `model_used` | VARCHAR(50) | | Gemini model name (e.g., `gemini-2.0-flash`) |
-| `prompt_hash` | VARCHAR(64) | | SHA-256 hash for prompt deduplication |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Generation time |
-| `updated_at` | TIMESTAMP | ON UPDATE CURRENT_TIMESTAMP | Last update time |
+| Column            | Type        | Constraints                 | Description                                  |
+| ----------------- | ----------- | --------------------------- | -------------------------------------------- |
+| `id`              | INT         | PK, AUTO_INCREMENT          | Internal ID                                  |
+| `player_id`       | INT         | FK → players.id, NOT NULL   | Player who requested the route               |
+| `game_id`         | INT         | FK → games.id, NOT NULL     | Target game                                  |
+| `summary_md`      | LONGTEXT    |                             | Generated Markdown optimization guide        |
+| `source_ids_used` | JSON        |                             | Array of data_source IDs used in generation  |
+| `model_used`      | VARCHAR(50) |                             | Gemini model name (e.g., `gemini-2.0-flash`) |
+| `prompt_hash`     | VARCHAR(64) |                             | SHA-256 hash for prompt deduplication        |
+| `created_at`      | TIMESTAMP   | DEFAULT CURRENT_TIMESTAMP   | Generation time                              |
+| `updated_at`      | TIMESTAMP   | ON UPDATE CURRENT_TIMESTAMP | Last update time                             |
 
 ---
 
@@ -166,30 +169,30 @@ players ─┬─< player_games >─── games ─┬─< achievements
 
 All foreign keys use `ON DELETE CASCADE` — deleting a parent record automatically removes all dependent records.
 
-| FK Constraint | From | To | Cascade |
-|--------------|------|-----|---------|
-| `fk_pg_player` | `player_games.player_id` | `players.id` | DELETE CASCADE |
-| `fk_pg_game` | `player_games.game_id` | `games.id` | DELETE CASCADE |
-| `fk_ach_game` | `achievements.game_id` | `games.id` | DELETE CASCADE |
-| `fk_pa_player` | `player_achievements.player_id` | `players.id` | DELETE CASCADE |
+| FK Constraint       | From                                 | To                | Cascade        |
+| ------------------- | ------------------------------------ | ----------------- | -------------- |
+| `fk_pg_player`      | `player_games.player_id`             | `players.id`      | DELETE CASCADE |
+| `fk_pg_game`        | `player_games.game_id`               | `games.id`        | DELETE CASCADE |
+| `fk_ach_game`       | `achievements.game_id`               | `games.id`        | DELETE CASCADE |
+| `fk_pa_player`      | `player_achievements.player_id`      | `players.id`      | DELETE CASCADE |
 | `fk_pa_achievement` | `player_achievements.achievement_id` | `achievements.id` | DELETE CASCADE |
-| `fk_ds_game` | `data_sources.game_id` | `games.id` | DELETE CASCADE |
-| `fk_or_player` | `optimization_routes.player_id` | `players.id` | DELETE CASCADE |
-| `fk_or_game` | `optimization_routes.game_id` | `games.id` | DELETE CASCADE |
+| `fk_ds_game`        | `data_sources.game_id`               | `games.id`        | DELETE CASCADE |
+| `fk_or_player`      | `optimization_routes.player_id`      | `players.id`      | DELETE CASCADE |
+| `fk_or_game`        | `optimization_routes.game_id`        | `games.id`        | DELETE CASCADE |
 
 ---
 
 ## Indexes
 
-| Index | Table | Column(s) | Purpose |
-|-------|-------|----------|---------|
-| `idx_steam_id` | `players` | `steam_id` | Fast player lookup by Steam ID |
-| `idx_app_id` | `games` | `app_id` | Fast game lookup by Steam app ID |
-| `idx_game_id` | `achievements` | `game_id` | List achievements for a game |
+| Index                 | Table                 | Column(s)               | Purpose                           |
+| --------------------- | --------------------- | ----------------------- | --------------------------------- |
+| `idx_steam_id`        | `players`             | `steam_id`              | Fast player lookup by Steam ID    |
+| `idx_app_id`          | `games`               | `app_id`                | Fast game lookup by Steam app ID  |
+| `idx_game_id`         | `achievements`        | `game_id`               | List achievements for a game      |
 | `idx_player_unlocked` | `player_achievements` | `(player_id, unlocked)` | Filter unlocked/locked per player |
-| `idx_ds_game` | `data_sources` | `game_id` | List sources for a game |
-| `idx_or_player_game` | `optimization_routes` | `(player_id, game_id)` | Find routes per player+game |
-| `idx_or_prompt_hash` | `optimization_routes` | `prompt_hash` | Prompt deduplication lookups |
+| `idx_ds_game`         | `data_sources`        | `game_id`               | List sources for a game           |
+| `idx_or_player_game`  | `optimization_routes` | `(player_id, game_id)`  | Find routes per player+game       |
+| `idx_or_prompt_hash`  | `optimization_routes` | `prompt_hash`           | Prompt deduplication lookups      |
 
 ---
 
@@ -201,13 +204,13 @@ The `init.sql` includes seed data for development:
 
 **Sample Achievements:**
 
-| Achievement | Global % | Rarity Tier |
-|-------------|----------|-------------|
-| Margit, the Fell Omen | 74.50% | Common |
-| Elden Lord | 22.30% | Uncommon |
-| Age of the Stars | 11.40% | Rare |
-| Malenia, Blade of Miquella | 8.70% | Rare |
-| Legendary Armaments | 3.20% | Ultra-Rare |
+| Achievement                | Global % | Rarity Tier |
+| -------------------------- | -------- | ----------- |
+| Margit, the Fell Omen      | 74.50%   | Common      |
+| Elden Lord                 | 22.30%   | Uncommon    |
+| Age of the Stars           | 11.40%   | Rare        |
+| Malenia, Blade of Miquella | 8.70%    | Rare        |
+| Legendary Armaments        | 3.20%    | Ultra-Rare  |
 
 ---
 
@@ -222,6 +225,7 @@ COPY init.sql /docker-entrypoint-initdb.d/01-init.sql
 ```
 
 **Key settings applied:**
+
 - `character-set-server=utf8mb4` — Full Unicode support (emoji, CJK characters)
 - `collation-server=utf8mb4_unicode_ci` — Case-insensitive Unicode collation
 - `max_connections=100` — Sufficient for development
@@ -289,11 +293,10 @@ FROM achievements
 WHERE game_id = 1
 GROUP BY rarity_tier;
 
--- Find games with scraped bookmarks
-SELECT g.name, COUNT(ds.id) AS source_count
+-- List bookmarks per game
+SELECT g.name, COUNT(ds.id) AS bookmark_count
 FROM games g
 JOIN data_sources ds ON g.id = ds.game_id
-WHERE ds.scraped_content IS NOT NULL
 GROUP BY g.id;
 
 -- Reset all data (development only)

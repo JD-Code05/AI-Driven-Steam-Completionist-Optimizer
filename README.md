@@ -1,6 +1,6 @@
 # AI-Driven Steam Completionist Optimizer
 
-An AI-driven web application that helps Steam gamers plan and optimize their achievement hunting. Syncs your Steam library, scrapes achievement guides from the web and YouTube, and uses Google Gemini AI to generate personalized completion routes.
+An AI-driven web application that helps Steam gamers plan and optimize their achievement hunting. Syncs your Steam library, scrapes wiki guides as RAG context, and uses Google Gemini AI to generate personalized per-achievement guides.
 
 ---
 
@@ -24,8 +24,9 @@ An AI-driven web application that helps Steam gamers plan and optimize their ach
 - **Steam Login** — Sign in with your Steam account via OpenID 2.0
 - **Library Sync** — Automatically import your owned games and achievements from the Steam Web API
 - **Achievement Tracking** — View completion progress per game with rarity tiers (Ultra-Rare, Rare, Uncommon, Common)
-- **Guide Scraping** — Automatically discover and scrape achievement guides from websites and YouTube transcripts
-- **AI Optimization** — Gemini AI analyzes your locked achievements and scraped guides to generate an optimal completion route
+- **AI Tips** — Click any achievement to get a Gemini AI-generated 4-section guide (How to Unlock, Time Estimate, Warnings, Pro Tips) cached locally per achievement
+- **Bookmark Manager** — Save and organize guide URLs per game
+- **Completionist Showcase** — Automatically highlights 100%-completed games on the dashboard
 - **Responsive Dashboard** — Z-pattern layout with progress rings, achievement cards, and game grid
 - **Containerized** — Full Docker Compose setup for local development and Kubernetes manifests for production
 
@@ -44,8 +45,8 @@ An AI-driven web application that helps Steam gamers plan and optimize their ach
                                    │
                     ┌──────────────┼──────────────┐
                     ▼              ▼              ▼
-              Steam Web API   Web Scraping   Gemini AI
-              (game data)     (guides)       (RAG routes)
+               Steam Web API   Web Scraping   Gemini AI
+               (game data)     (wiki guides)  (per-achievement tips)
 ```
 
 ---
@@ -105,18 +106,19 @@ docker-compose up --build
 ```
 
 This will:
+
 - Build the MySQL database container and run `init.sql` (creates 7 tables + seed data)
-- Build the Flask backend with headless Chrome for web scraping
+- Build the Flask backend
 - Build the React frontend and serve it via nginx
 - Start all three containers with health checks and automatic restart
 
 ### Step 5: Open the application
 
-| Service | URL |
-|---------|-----|
-| **Frontend** | [http://localhost:3000](http://localhost:3000) |
+| Service         | URL                                                                  |
+| --------------- | -------------------------------------------------------------------- |
+| **Frontend**    | [http://localhost:3000](http://localhost:3000)                       |
 | **Backend API** | [http://localhost:5000/api/health](http://localhost:5000/api/health) |
-| **MySQL** | `localhost:3306` (connect via any MySQL client) |
+| **MySQL**       | `localhost:3306` (connect via any MySQL client)                      |
 
 ### Step 6: Sign in and sync your games
 
@@ -124,7 +126,7 @@ This will:
 2. You'll be redirected to Steam's login page — sign in with your Steam account
 3. After redirect, click **"Sync Games"** in the dashboard to import your library
 4. Select a game and click **"Sync Achievements"** to load achievement data
-5. Use **"Auto-Discover Sources"** to find guides, then **"Generate AI Route"** for optimization
+5. Click any achievement to open the detail modal and click **"Get AI Tip"** for a personalized guide
 
 ### Stopping the application
 
@@ -151,6 +153,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 This enables:
+
 - **Backend**: Flask debug mode with auto-reload, source code mounted as a volume
 - **Frontend**: Vite dev server with HMR (Hot Module Replacement), `src/` mounted as a volume
 
@@ -189,6 +192,7 @@ python wsgi.py
 ```
 
 > **Note:** You still need a running MySQL 8.0 instance. You can start just the database with:
+>
 > ```bash
 > docker-compose up db
 > ```
@@ -239,6 +243,7 @@ chmod +x deploy.sh
 ```
 
 The script will:
+
 1. Build all three Docker images locally
 2. Create the `steam-optimizer` namespace
 3. Apply ConfigMap and Secrets
@@ -249,10 +254,10 @@ The script will:
 
 ### Step 4: Access the application
 
-| Service | Access Method |
-|---------|--------------|
-| **Frontend** | [http://localhost:30000](http://localhost:30000) |
-| **Backend** | `kubectl port-forward -n steam-optimizer svc/backend 5000:5000` |
+| Service      | Access Method                                                   |
+| ------------ | --------------------------------------------------------------- |
+| **Frontend** | [http://localhost:30000](http://localhost:30000)                |
+| **Backend**  | `kubectl port-forward -n steam-optimizer svc/backend 5000:5000` |
 
 ### Useful K8s commands
 
@@ -281,20 +286,20 @@ kubectl delete namespace steam-optimizer
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `MYSQL_HOST` | Yes | `db` | MySQL hostname (`db` in Docker, `mysql` in K8s) |
-| `MYSQL_PORT` | Yes | `3306` | MySQL port |
-| `MYSQL_DATABASE` | Yes | `steam_optimizer` | Database name |
-| `MYSQL_USER` | Yes | `steam_user` | Database user |
-| `MYSQL_PASSWORD` | Yes | — | Database user password |
-| `MYSQL_ROOT_PASSWORD` | Yes | — | MySQL root password |
-| `FLASK_SECRET_KEY` | Yes | — | Secret key for JWT token signing |
-| `STEAM_API_KEY` | Yes | — | Steam Web API key |
-| `GEMINI_API_KEY` | Yes | — | Google Gemini API key |
-| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model to use |
-| `FLASK_ENV` | No | `production` | `development` or `production` |
-| `FLASK_DEBUG` | No | `0` | Set to `1` for debug mode |
+| Variable              | Required | Default            | Description                                     |
+| --------------------- | -------- | ------------------ | ----------------------------------------------- |
+| `MYSQL_HOST`          | Yes      | `db`               | MySQL hostname (`db` in Docker, `mysql` in K8s) |
+| `MYSQL_PORT`          | Yes      | `3306`             | MySQL port                                      |
+| `MYSQL_DATABASE`      | Yes      | `steam_optimizer`  | Database name                                   |
+| `MYSQL_USER`          | Yes      | `steam_user`       | Database user                                   |
+| `MYSQL_PASSWORD`      | Yes      | —                  | Database user password                          |
+| `MYSQL_ROOT_PASSWORD` | Yes      | —                  | MySQL root password                             |
+| `FLASK_SECRET_KEY`    | Yes      | —                  | Secret key for JWT token signing                |
+| `STEAM_API_KEY`       | Yes      | —                  | Steam Web API key                               |
+| `GEMINI_API_KEY`      | Yes      | —                  | Google Gemini API key                           |
+| `GEMINI_MODEL`        | No       | `gemini-2.5-flash` | Gemini model to use                             |
+| `FLASK_ENV`           | No       | `production`       | `development` or `production`                   |
+| `FLASK_DEBUG`         | No       | `0`                | Set to `1` for debug mode                       |
 
 ---
 
@@ -312,7 +317,7 @@ steam-optimizer/
 │       ├── extensions.py           # SQLAlchemy & Migrate instances
 │       ├── models/                 # 7 SQLAlchemy ORM models
 │       ├── routes/                 # 10 Flask Blueprints (CRUD + auth + sync + AI)
-│       ├── services/               # Business logic (Steam API, scraper, Gemini)
+│       ├── services/               # Business logic (Steam API, web scraper, SteamGridDB)
 │       └── utils/                  # JWT auth utilities
 │
 ├── frontend/                       # React SPA
@@ -345,7 +350,6 @@ steam-optimizer/
 ├── deploy.sh                       # K8s deployment script
 ├── .env.example                    # Environment variable template
 ├── .gitignore
-├── CLAUDE.md                       # AI assistant context file
 └── README.md                       # This file
 ```
 
@@ -353,58 +357,64 @@ steam-optimizer/
 
 ## API Reference
 
-The backend exposes **42 endpoints** across 10 blueprints. All endpoints return JSON.
+The backend exposes **37 endpoints** across 10 blueprints + 1 health check. All endpoints return JSON.
 
 ### Authentication
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/auth/login` | No | Redirects to Steam OpenID login |
-| GET | `/api/auth/callback` | No | Handles Steam callback, returns JWT |
-| GET | `/api/auth/me` | Yes | Get current authenticated player |
-| POST | `/api/auth/logout` | Yes | Logout acknowledgment |
+| Method | Endpoint             | Auth | Description                         |
+| ------ | -------------------- | ---- | ----------------------------------- |
+| GET    | `/api/auth/login`    | No   | Redirects to Steam OpenID login     |
+| GET    | `/api/auth/callback` | No   | Handles Steam callback, returns JWT |
+| GET    | `/api/auth/me`       | Yes  | Get current authenticated player    |
+| POST   | `/api/auth/logout`   | Yes  | Logout acknowledgment               |
 
 ### Steam Sync
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/sync/games` | Yes | Sync owned games from Steam |
-| POST | `/api/sync/achievements/<app_id>` | Yes | Sync achievements for a specific game |
+| Method | Endpoint                          | Auth | Description                           |
+| ------ | --------------------------------- | ---- | ------------------------------------- |
+| POST   | `/api/sync/games`                 | Yes  | Sync owned games from Steam           |
+| POST   | `/api/sync/achievements/<app_id>` | Yes  | Sync achievements for a specific game |
 
-### AI Optimization
+### AI
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/ai/generate/<game_id>` | Yes | Generate AI optimization route (RAG + Gemini) |
-| GET | `/api/ai/routes/<game_id>` | Yes | Get cached optimization route |
-| POST | `/api/ai/regenerate/<game_id>` | Yes | Force regenerate optimization route |
+| Method | Endpoint                                   | Auth | Description                                          |
+| ------ | ------------------------------------------ | ---- | ---------------------------------------------------- |
+| POST   | `/api/ai/achievement-tip/<achievement_id>` | Yes  | Generate a 4-section AI tip for a single achievement |
+
+### Bookmark Management
+
+| Method | Endpoint                 | Auth | Description                             |
+| ------ | ------------------------ | ---- | --------------------------------------- |
+| GET    | `/api/data-sources`      | No   | List bookmarks for a game (`?game_id=`) |
+| POST   | `/api/data-sources`      | No   | Add a bookmark                          |
+| PUT    | `/api/data-sources/<id>` | No   | Update a bookmark                       |
+| DELETE | `/api/data-sources/<id>` | No   | Delete a bookmark                       |
 
 ### CRUD Endpoints
 
 All CRUD blueprints follow the same pattern:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/<resource>` | List all (supports query filters) |
-| GET | `/api/<resource>/<id>` | Get one by ID |
-| POST | `/api/<resource>` | Create new |
-| PUT | `/api/<resource>/<id>` | Update existing |
-| DELETE | `/api/<resource>/<id>` | Delete |
+| Method | Endpoint               | Description                       |
+| ------ | ---------------------- | --------------------------------- |
+| GET    | `/api/<resource>`      | List all (supports query filters) |
+| GET    | `/api/<resource>/<id>` | Get one by ID                     |
+| POST   | `/api/<resource>`      | Create new                        |
+| PUT    | `/api/<resource>/<id>` | Update existing                   |
+| DELETE | `/api/<resource>/<id>` | Delete                            |
 
-**Resources:** `players`, `games`, `player-games`, `achievements`, `player-achievements`, `data-sources`, `optimization-routes`
+**Resources:** `players`, `games`, `player-games`, `achievements`, `player-achievements`
 
-### Scraping
+### SteamGridDB
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/data-sources/<id>/scrape` | No | Scrape content from a data source URL |
-| POST | `/api/data-sources/auto-discover/<game_id>` | No | Auto-discover guide sources for a game |
+| Method | Endpoint                         | Auth | Description                         |
+| ------ | -------------------------------- | ---- | ----------------------------------- |
+| GET    | `/api/steamgriddb/grid/<app_id>` | No   | Get high-res artwork URL for a game |
 
 ### Health Check
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Returns `{"status": "healthy"}` |
+| Method | Endpoint      | Description                     |
+| ------ | ------------- | ------------------------------- |
+| GET    | `/api/health` | Returns `{"status": "healthy"}` |
 
 ---
 
@@ -454,6 +464,7 @@ kubectl describe pod <pod-name> -n steam-optimizer
 ```
 
 Common causes:
+
 - PersistentVolume not created — ensure MySQL PV is applied: `kubectl apply -f k8s/mysql/pv.yaml`
 - Insufficient resources — check Docker Desktop has enough memory allocated (4GB+ recommended)
 
@@ -490,9 +501,8 @@ echo "bXlfdmFsdWU=" | base64 --decode
 
 **Empty or poor quality AI responses**
 
-- Make sure you've scraped at least one guide source before generating a route
-- Use **"Auto-Discover Sources"** to find guides, then **"Scrape"** each one
-- The AI performs better with more scraped content (guides, YouTube transcripts)
+- Verify your Gemini API key is valid and the Generative Language API is enabled
+- Try regenerating — model responses can vary between calls
 
 ---
 

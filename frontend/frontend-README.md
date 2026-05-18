@@ -1,6 +1,6 @@
 # Frontend — React SPA
 
-The frontend is a **React 19** single-page application built with **Vite 6** and **Tailwind CSS v4**. It provides a responsive, Steam-themed dashboard for managing games, viewing achievement progress, and generating AI-powered optimization routes.
+The frontend is a **React 19** single-page application built with **Vite 6** and **Tailwind CSS v4**. It provides a responsive, Steam-themed dashboard for managing games, viewing achievement progress, and getting AI-powered per-achievement guidance.
 
 ---
 
@@ -28,18 +28,18 @@ The frontend communicates with the Flask backend via REST/JSON. Authentication i
 
 ## Tech Stack
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| React | 19.0.0 | UI framework |
-| React DOM | 19.0.0 | DOM rendering |
-| React Router DOM | 7.1.1 | Client-side routing |
-| Axios | 1.7.9 | HTTP client for API calls |
-| React Icons | 5.4.0 | Icon library (Heroicons v2) |
-| React Markdown | 9.0.3 | Renders AI-generated Markdown guides |
-| Vite | 6.0.0 | Build tool & dev server |
-| Tailwind CSS | 4.1.4 | Utility-first CSS framework |
-| @tailwindcss/vite | 4.1.4 | Tailwind Vite plugin (v4 style) |
-| @vitejs/plugin-react | 4.3.4 | React fast refresh for Vite |
+| Package              | Version | Purpose                              |
+| -------------------- | ------- | ------------------------------------ |
+| React                | 19.0.0  | UI framework                         |
+| React DOM            | 19.0.0  | DOM rendering                        |
+| React Router DOM     | 7.1.1   | Client-side routing                  |
+| Axios                | 1.7.9   | HTTP client for API calls            |
+| React Icons          | 5.4.0   | Icon library (Heroicons v2)          |
+| React Markdown       | 9.0.3   | Renders AI-generated Markdown guides |
+| Vite                 | 6.0.0   | Build tool & dev server              |
+| Tailwind CSS         | 4.1.4   | Utility-first CSS framework          |
+| @tailwindcss/vite    | 4.1.4   | Tailwind Vite plugin (v4 style)      |
+| @vitejs/plugin-react | 4.3.4   | React fast refresh for Vite          |
 
 ---
 
@@ -66,20 +66,25 @@ frontend/
     │   └── api.js           # Axios instance + API wrapper functions for all endpoints
     │
     ├── components/          # Reusable UI building blocks
-    │   ├── Navbar.jsx       # Top navigation bar with mobile hamburger menu
-    │   ├── Layout.jsx       # Page layout wrapper (Navbar + content area)
-    │   ├── ProtectedRoute.jsx  # Auth guard — redirects to /login if not authenticated
-    │   ├── GameCard.jsx     # Game card with icon, name, playtime, completion progress
-    │   ├── AchievementCard.jsx  # Achievement card with icon, name, rarity badge, unlock status
-    │   ├── RarityBadge.jsx  # Colored badge showing rarity tier (ultra-rare/rare/uncommon/common)
-    │   ├── ProgressBar.jsx  # Horizontal progress bar with percentage label
-    │   └── ProgressRing.jsx # SVG donut chart showing completion percentage
+    │   ├── Navbar.jsx               # Top navigation bar with mobile hamburger menu
+    │   ├── Layout.jsx               # Page layout wrapper (Navbar + content area)
+    │   ├── ProtectedRoute.jsx       # Auth guard — redirects to /login if not authenticated
+    │   ├── GameCard.jsx             # Game card with icon, name, playtime, completion progress
+    │   ├── AchievementCard.jsx      # Achievement card with icon, name, rarity badge, unlock status
+    │   ├── AchievementDetailModal.jsx  # Centered modal for per-achievement AI tip generation
+    │   ├── AchievementTipRenderer.jsx  # Structured renderer for parsed 4-section AI tips
+    │   ├── RarityBadge.jsx          # Colored badge showing rarity tier
+    │   ├── ProgressBar.jsx          # Horizontal progress bar with percentage label
+    │   └── ProgressRing.jsx         # SVG donut chart showing completion percentage
     │
-    └── pages/               # Full-page components (one per route)
-        ├── LoginPage.jsx        # Hero section + Steam sign-in button + feature cards
-        ├── DashboardPage.jsx    # Z-pattern layout: profile, stats, games, achievements, AI CTA
-        ├── GameDetailPage.jsx   # Achievement list with filters, rarity breakdown, bookmarks
-        └── OptimizationPage.jsx # AI-generated Markdown guide with generate/regenerate buttons
+    ├── pages/               # Full-page components (one per route)
+    │   ├── LoginPage.jsx        # Hero section + Steam sign-in button + feature cards
+    │   ├── DashboardPage.jsx    # Profile, stats, Completionist Showcase, tracked games, recent achievements
+    │   ├── GameDetailPage.jsx   # Achievement list with filters, rarity breakdown, bookmarks, AI tip modal
+    │   └── OptimizationPage.jsx # AI-generated Markdown guide viewer
+    │
+    └── utils/
+        └── achievementTipParser.js  # Parses raw AI Markdown into structured 4-section object
 ```
 
 ---
@@ -88,13 +93,13 @@ frontend/
 
 Defined in `App.jsx`:
 
-| Route | Component | Auth Required | Description |
-|-------|-----------|:------------:|-------------|
-| `/login` | `LoginPage` | No | Landing page with Steam sign-in button |
-| `/dashboard` | `DashboardPage` | Yes | Main dashboard with game library and stats |
-| `/games/:gameId` | `GameDetailPage` | Yes | Game detail with achievements, sources, and AI actions |
-| `/games/:gameId/optimize` | `OptimizationPage` | Yes | View/generate AI optimization route |
-| `*` (catch-all) | Redirects to `/login` | — | Handles unknown routes |
+| Route                     | Component             | Auth Required | Description                                            |
+| ------------------------- | --------------------- | :-----------: | ------------------------------------------------------ |
+| `/login`                  | `LoginPage`           |      No       | Landing page with Steam sign-in button                 |
+| `/dashboard`              | `DashboardPage`       |      Yes      | Main dashboard with game library and stats             |
+| `/games/:gameId`          | `GameDetailPage`      |      Yes      | Game detail with achievements, sources, and AI actions |
+| `/games/:gameId/optimize` | `OptimizationPage`    |      Yes      | View/generate AI optimization route                    |
+| `*` (catch-all)           | Redirects to `/login` |       —       | Handles unknown routes                                 |
 
 ### LoginPage
 
@@ -106,34 +111,31 @@ Defined in `App.jsx`:
 
 Uses a deliberate **Z-pattern layout** for visual flow:
 
-1. **Top-left:** Player profile card (avatar, name, Steam ID)
-2. **Top-right:** Completion progress ring (overall achievement completion)
-3. **Middle:** Tracked games grid (GameCard components)
-4. **Bottom-left:** Recent unlocked achievements
-5. **Bottom-right:** AI optimization call-to-action
+1. **Top row:** Player profile card (avatar, name, Steam ID) + overall completion ring
+2. **Completionist Showcase:** Horizontal card below the profile row showing 100%-completed games (hidden if none exist)
+3. **Tracked games grid:** `GameCard` components for games the player is tracking
+4. **All games section:** Full library grid with toggle to show/hide
+5. **Bottom-left:** Recent unlocked achievements (across all tracked games)
+6. **Bottom-right:** AI optimization call-to-action card (hidden once at least one game is tracked)
 
 Includes a **"Sync Games"** button to import the player's Steam library.
 
 ### GameDetailPage
 
 - **Header:** Game banner, name, app ID, playtime, track/untrack button
-- **Main area:** Achievement list with filter tabs (All / Locked / Unlocked)
+- **Main area:** Achievement list with filter tabs (All / Locked / Unlocked); clicking an achievement opens `AchievementDetailModal`
 - **Sidebar:**
   - Completion ring for this game
   - Rarity breakdown (color-coded counts per tier)
-  - Bookmarks panel (add/delete/scrape/auto-discover)
-  - AI optimize and view guide buttons
+  - Bookmarks panel (add/delete guide URLs per game)
 - **Sync button:** Fetches latest achievements from Steam
-- **Auto-Discover:** Searches Google for guide URLs and creates data source records
-- **Scrape:** Extracts content from each data source URL
+- **AI Tip flow:** Clicking any achievement row opens a centered modal with a **"Get AI Tip"** button; the generated tip is cached in `tipCache` state (persisted to `localStorage`) so it survives modal close/reopen without re-fetching
 
 ### OptimizationPage
 
 - Back navigation link to the game detail page
-- Purple-themed header with model name and generation timestamp
+- Purple-themed header with model name
 - **Markdown rendering** of the AI guide using `react-markdown` with prose styling
-- Generate button (if no route exists) or Regenerate button (to force a new generation)
-- Loading spinner with "15–30 seconds" estimate
 - Error display for API failures
 
 ---
@@ -159,6 +161,7 @@ Wraps route components. If the user is not authenticated (no player in AuthConte
 ### `GameCard`
 
 Displays a game as a card with:
+
 - Game icon image
 - Game name
 - Playtime in hours
@@ -167,9 +170,32 @@ Displays a game as a card with:
 - "Tracked" badge if the game is being tracked
 - Links to the game detail page
 
+### `AchievementDetailModal`
+
+A fixed, centered modal opened when a user clicks any achievement row. Features:
+
+- Achievement icon, name, description, rarity badge, and unlock status
+- **"Get AI Tip" button** — calls `POST /api/ai/achievement-tip/<id>` and renders the result via `AchievementTipRenderer`
+- Tip is passed in via `initialTip` prop (from parent's `tipCache`) so cached tips display immediately without re-fetching
+- `onTipGenerated` callback saves the tip back to the parent `tipCache` and to `localStorage`
+- **Find More Resources** section with auto-generated links to YouTube and Steam Community Guides
+- Closes on Escape key or backdrop click
+
+### `AchievementTipRenderer`
+
+Renders a parsed tip object (from `achievementTipParser`) as structured UI sections:
+
+- **Estimated Time** — purple card with clock icon
+- **How to Unlock** — numbered steps
+- **Important Warnings** — amber icon, numbered warnings
+- **Pro Tips** — green icon, numbered tips
+
+Each step/tip text is rendered through `ReactMarkdown` for inline formatting support.
+
 ### `AchievementCard`
 
 Displays a single achievement with:
+
 - Achievement icon (colored if unlocked, grayed if locked)
 - Display name and description
 - RarityBadge component
@@ -180,16 +206,17 @@ Displays a single achievement with:
 
 A small colored pill/badge showing the rarity tier:
 
-| Tier | Color |
-|------|-------|
+| Tier       | Color  |
+| ---------- | ------ |
 | Ultra-Rare | Purple |
-| Rare | Amber |
-| Uncommon | Blue |
-| Common | Gray |
+| Rare       | Amber  |
+| Uncommon   | Blue   |
+| Common     | Gray   |
 
 ### `ProgressBar`
 
 Horizontal bar with:
+
 - Filled portion proportional to `value/max`
 - Percentage label (e.g., "73%")
 - Steam-accent color gradient
@@ -197,6 +224,7 @@ Horizontal bar with:
 ### `ProgressRing`
 
 SVG-based donut/ring chart with:
+
 - Configurable `size` (diameter in pixels)
 - Animated stroke that fills proportionally to `value/max`
 - Center text showing the percentage
@@ -211,17 +239,20 @@ SVG-based donut/ring chart with:
 Provides global authentication state via React Context:
 
 **State:**
+
 - `player` — Current player object (from `/api/auth/me`) or `null`
 - `token` — JWT string stored in `localStorage`
 - `loading` — `true` while verifying the token on initial load
 
 **Flow:**
+
 1. On mount, checks `localStorage` for a saved JWT token
 2. Also checks the URL for `?token=<jwt>` (Steam callback redirect)
 3. If a token exists, calls `GET /api/auth/me` to validate and fetch player data
 4. If the token is invalid/expired, clears it from storage
 
 **Exported functions:**
+
 - `login()` — Redirects to `/api/auth/login` (Steam OpenID)
 - `logout()` — Calls `POST /api/auth/logout`, clears token from storage, resets state
 
@@ -232,6 +263,7 @@ Provides global authentication state via React Context:
 ### `services/api.js`
 
 Creates a configured Axios instance with:
+
 - **Base URL:** `/api` (proxied to backend in dev, reverse-proxied by nginx in prod)
 - **JWT interceptor:** Automatically adds `Authorization: Bearer <token>` header to every request if a token exists in `localStorage`
 
@@ -239,16 +271,17 @@ Creates a configured Axios instance with:
 
 Organized by resource — each returns an Axios promise:
 
-| Namespace | Methods | Description |
-|-----------|---------|-------------|
-| `authAPI` | `login()`, `me()`, `logout()` | Authentication endpoints |
-| `syncAPI` | `syncGames()`, `syncAchievements(appId)` | Steam data sync |
-| `gamesAPI` | `list()`, `get(id)`, `create(data)`, `update(id, data)`, `delete(id)` | Game CRUD |
-| `playerGamesAPI` | `list(playerId)`, `update(id, data)` | Player-game associations |
-| `achievementsAPI` | `list(gameId)`, `get(id)` | Achievement data |
-| `playerAchievementsAPI` | `list(playerId, gameId)` | Player unlock status |
-| `dataSourcesAPI` | `list(gameId)`, `create(data)`, `delete(id)`, `scrape(id)`, `autoDiscover(gameId)` | Guide sources |
-| `aiAPI` | `generate(gameId)`, `getRoute(gameId)`, `regenerate(gameId)` | AI optimization |
+| Namespace               | Methods                                                          | Description              |
+| ----------------------- | ---------------------------------------------------------------- | ------------------------ |
+| `authAPI`               | `getLoginUrl()`, `me()`, `logout()`                              | Authentication endpoints |
+| `syncAPI`               | `syncGames()`, `syncAchievements(appId)`                         | Steam data sync          |
+| `gamesAPI`              | `list()`, `get(id)`                                              | Game data                |
+| `playerGamesAPI`        | `list(playerId, tracked)`, `update(id, data)`                    | Player-game associations |
+| `achievementsAPI`       | `list(gameId)`                                                   | Achievement definitions  |
+| `playerAchievementsAPI` | `list(playerId, gameId)`                                         | Player unlock status     |
+| `dataSourcesAPI`        | `list(gameId)`, `create(data)`, `update(id, data)`, `delete(id)` | Bookmark management      |
+| `aiAPI`                 | `getAchievementTip(achievementId)`                               | Per-achievement AI tip   |
+| `optimizationAPI`       | `list(playerId, gameId)`, `get(id)`                              | Optimization route data  |
 
 ---
 
@@ -260,17 +293,17 @@ This project uses **Tailwind v4** which defines themes in CSS rather than a `tai
 
 ### Custom Colors
 
-| Token | Usage |
-|-------|-------|
-| `--color-steam-dark` | Main background color |
-| `--color-steam-blue` | Primary accent blue |
-| `--color-steam-accent` | Light accent (links, highlights) |
-| `--color-surface` | Card/panel backgrounds |
-| `--color-surface-light` | Elevated surface backgrounds |
-| `--color-rarity-common` | Common achievement badge |
-| `--color-rarity-uncommon` | Uncommon achievement badge |
-| `--color-rarity-rare` | Rare achievement badge |
-| `--color-rarity-ultra-rare` | Ultra-rare achievement badge |
+| Token                       | Usage                            |
+| --------------------------- | -------------------------------- |
+| `--color-steam-dark`        | Main background color            |
+| `--color-steam-blue`        | Primary accent blue              |
+| `--color-steam-accent`      | Light accent (links, highlights) |
+| `--color-surface`           | Card/panel backgrounds           |
+| `--color-surface-light`     | Elevated surface backgrounds     |
+| `--color-rarity-common`     | Common achievement badge         |
+| `--color-rarity-uncommon`   | Uncommon achievement badge       |
+| `--color-rarity-rare`       | Rare achievement badge           |
+| `--color-rarity-ultra-rare` | Ultra-rare achievement badge     |
 
 ### Design Philosophy
 
@@ -326,11 +359,13 @@ npm run preview  # Preview the production build locally
 ### Multi-stage Dockerfile
 
 **Stage 1 — Build:**
+
 - Base: `node:20-alpine`
 - Installs dependencies from `package.json`
 - Runs `npm run build` to produce optimized static files in `dist/`
 
 **Stage 2 — Serve:**
+
 - Base: `nginx:alpine`
 - Copies built files from Stage 1 to `/usr/share/nginx/html`
 - Copies custom `nginx.conf` for reverse proxy and SPA routing

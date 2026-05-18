@@ -116,19 +116,3 @@ CREATE TABLE optimization_routes (
     INDEX idx_or_prompt_hash (prompt_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================
--- Seed data: Sample games for development
--- ============================================================
-
-
--- Elden Ring
-INSERT INTO games (app_id, name, img_icon_url, img_logo_url, total_achievements) VALUES
-(1245620, 'ELDEN RING', 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/1245620/icon.jpg', 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/1245620/logo.jpg', 42);
-
--- Sample achievements for Elden Ring
-INSERT INTO achievements (game_id, api_name, display_name, description, global_percent) VALUES
-((SELECT id FROM games WHERE app_id = 1245620), 'ELDEN_LORD', 'Elden Lord', 'Achieved the Elden Lord ending', 22.30),
-((SELECT id FROM games WHERE app_id = 1245620), 'MARGIT', 'Margit, the Fell Omen', 'Defeated Margit, the Fell Omen', 74.50),
-((SELECT id FROM games WHERE app_id = 1245620), 'MALENIA', 'Malenia, Blade of Miquella', 'Defeated Malenia, Blade of Miquella', 8.70),
-((SELECT id FROM games WHERE app_id = 1245620), 'ALL_LEGENDARY_WEAPONS', 'Legendary Armaments', 'Acquired all legendary armaments', 3.20),
-((SELECT id FROM games WHERE app_id = 1245620), 'AGE_OF_STARS', 'Age of the Stars', 'Achieved the Age of the Stars ending', 11.40);

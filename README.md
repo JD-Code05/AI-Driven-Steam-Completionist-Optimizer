@@ -61,7 +61,9 @@ Before starting, make sure you have:
    - Requires a Steam account with a purchase history
 3. **Google Gemini API Key** — Get one at [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
    - Free tier is sufficient for development
-4. **Git** — To clone this repository
+4. **SteamGridDB API Key** — Get one at [https://www.steamgriddb.com/profile/preferences/api](https://www.steamgriddb.com/profile/preferences/api)
+   - Free account required — used for HD game poster artwork
+5. **Git** — To clone this repository
 
 ---
 
@@ -90,6 +92,7 @@ Open `.env` in a text editor and fill in:
 # Required — replace these placeholder values
 STEAM_API_KEY=your_actual_steam_api_key
 GEMINI_API_KEY=your_actual_gemini_api_key
+STEAMGRIDDB_API_KEY=your_actual_steamgriddb_api_key
 
 # Recommended — change for security
 MYSQL_PASSWORD=a_strong_password

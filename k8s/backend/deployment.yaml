@@ -26,7 +26,7 @@ spec:
       containers:
         - name: backend
           image: steam-optimizer-backend:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
               name: http
@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: steam-optimizer-secrets
                   key: STEAM_API_KEY
+            - name: STEAMGRIDDB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: steam-optimizer-secrets
+                  key: STEAMGRIDDB_API_KEY
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:

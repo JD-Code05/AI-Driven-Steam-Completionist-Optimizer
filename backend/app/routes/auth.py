@@ -11,18 +11,28 @@ auth_bp = Blueprint('auth', __name__)
 STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login'
 
 
+def _external_base_url():
+    """Return the public origin the browser used to reach the backend."""
+    forwarded_proto = request.headers.get('X-Forwarded-Proto', request.scheme)
+    forwarded_host = request.headers.get('X-Forwarded-Host', request.host)
+    if forwarded_host:
+        return f"{forwarded_proto}://{forwarded_host}".rstrip('/')
+
+    return current_app.config.get('BACKEND_URL', 'http://localhost:5000').rstrip('/')
+
+
 @auth_bp.route('/login', methods=['GET'])
 def login():
     """Redirect user to Steam OpenID login page."""
     return_url = request.args.get('return_url', 'http://localhost:3000')
 
-    backend_url = current_app.config.get('BACKEND_URL', 'http://localhost:5000')
-    callback_url = backend_url.rstrip('/') + '/api/auth/callback'
+    external_base_url = _external_base_url()
+    callback_url = external_base_url + '/api/auth/callback'
 
     callback_url += '?' + urllib.parse.urlencode({'return_url': return_url})
 
     # Ensure realm is just the base URL without trailing slash
-    realm = backend_url.rstrip('/') + '/'
+    realm = external_base_url + '/'
 
     params = {
         'openid.ns': 'http://specs.openid.net/auth/2.0',
@@ -64,7 +74,11 @@ def callback():
     # Fetch player profile from Steam API
     from ..services.steam_api import SteamAPIService
     steam_service = SteamAPIService()
-    profile = steam_service.get_player_summary(steam_id)
+    try:
+        profile = steam_service.get_player_summary(steam_id)
+    except requests.RequestException as exc:
+        current_app.logger.warning("Steam profile lookup failed for %s: %s", steam_id, exc)
+        profile = None
 
     # Create or update player in DB
     player = Player.query.filter_by(steam_id=steam_id).first()

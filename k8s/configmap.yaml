@@ -12,3 +12,4 @@ data:
   FLASK_ENV: "production"
   FLASK_DEBUG: "0"
   GEMINI_MODEL: "gemini-2.5-flash"
+  BACKEND_URL: "http://localhost:3000"

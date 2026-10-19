@@ -1,13 +1,19 @@
-from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from ..extensions import db
 from ..models.data_source import DataSource
-from ..models.game import Game
+from ..models.player_game import PlayerGame
+from ..utils.auth import auth_required
 
 data_sources_bp = Blueprint('data_sources', __name__)
 
 
+# shortcut: any owner of the game can edit its sources (no per-player owner column); add an owner column if sources get abused
+def owns_game(game_id):
+    return PlayerGame.query.filter_by(player_id=request.player_id, game_id=game_id).first() is not None
+
+
 @data_sources_bp.route('', methods=['GET'])
+@auth_required
 def list_data_sources():
     game_id = request.args.get('game_id', type=int)
     if not game_id:
@@ -19,19 +25,14 @@ def list_data_sources():
     return jsonify([s.to_dict() for s in sources])
 
 
-@data_sources_bp.route('/<int:source_id>', methods=['GET'])
-def get_data_source(source_id):
-    source = db.session.get(DataSource, source_id)
-    if not source:
-        return jsonify({'error': 'Data source not found'}), 404
-    return jsonify(source.to_dict())
-
-
 @data_sources_bp.route('', methods=['POST'])
+@auth_required
 def create_data_source():
     data = request.get_json()
     if not data or not data.get('game_id') or not data.get('url'):
         return jsonify({'error': 'game_id and url are required'}), 400
+    if not owns_game(data['game_id']):
+        return jsonify({'error': 'Game not found'}), 404
 
     source = DataSource(
         game_id=data['game_id'],
@@ -46,9 +47,10 @@ def create_data_source():
 
 
 @data_sources_bp.route('/<int:source_id>', methods=['PUT'])
+@auth_required
 def update_data_source(source_id):
     source = db.session.get(DataSource, source_id)
-    if not source:
+    if not source or not owns_game(source.game_id):
         return jsonify({'error': 'Data source not found'}), 404
 
     data = request.get_json()
@@ -64,9 +66,10 @@ def update_data_source(source_id):
 
 
 @data_sources_bp.route('/<int:source_id>', methods=['DELETE'])
+@auth_required
 def delete_data_source(source_id):
     source = db.session.get(DataSource, source_id)
-    if not source:
+    if not source or not owns_game(source.game_id):
         return jsonify({'error': 'Data source not found'}), 404
 
     db.session.delete(source)

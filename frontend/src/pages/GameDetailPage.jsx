@@ -87,8 +87,8 @@ export default function GameDetailPage() {
 
       if (player) {
         const [paRes, pgRes, dsRes] = await Promise.all([
-          playerAchievementsAPI.list(player.id, gameId),
-          playerGamesAPI.list(player.id),
+          playerAchievementsAPI.list(gameId),
+          playerGamesAPI.list(),
           dataSourcesAPI.list(gameId),
         ])
         setPlayerAchs(paRes.data)

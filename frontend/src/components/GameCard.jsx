@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import ProgressBar from './ProgressBar'
+import api from '../services/api'
 
 // Module-level cache so each app_id is only fetched once per session
 const imageCache = new Map()
@@ -27,9 +28,8 @@ export default function GameCard({ game, playerGame, unlockedCount, totalAchieve
     if (imageCache.has(game.app_id)) return
 
     let cancelled = false
-    fetch(`/api/steamgriddb/grid/${game.app_id}`)
-      .then((r) => r.json())
-      .then((data) => {
+    api.get(`/steamgriddb/grid/${game.app_id}`)
+      .then(({ data }) => {
         if (cancelled) return
         const url = data?.url || null
         imageCache.set(game.app_id, url)

@@ -72,13 +72,12 @@ backend/
     │   ├── data_source.py  # Bookmark URLs (user-managed guide links)
     │   └── optimization_route.py  # Legacy model — kept for DB compatibility
     │
-    ├── routes/             # Flask Blueprints (10 blueprints)
+    ├── routes/             # Flask Blueprints (9 blueprints)
     │   ├── __init__.py
-    │   ├── players.py      # /api/players — Player CRUD
-    │   ├── games.py        # /api/games — Game CRUD
-    │   ├── player_games.py # /api/player-games — Player-Game association CRUD
-    │   ├── achievements.py # /api/achievements — Achievement CRUD
-    │   ├── player_achievements.py  # /api/player-achievements — Player unlock status CRUD
+    │   ├── games.py        # /api/games — Game read-only
+    │   ├── player_games.py # /api/player-games — Caller's games + Track toggle
+    │   ├── achievements.py # /api/achievements — Achievement read-only
+    │   ├── player_achievements.py  # /api/player-achievements — Caller's unlock status, read-only
     │   ├── data_sources.py # /api/data-sources — Bookmark CRUD (no scraping)
     │   ├── auth.py         # /api/auth — Steam OpenID login/callback + JWT
     │   ├── sync.py         # /api/sync — Sync games/achievements from Steam API
@@ -154,15 +153,15 @@ The `Achievement` model has a `@property rarity_tier` that computes from `global
 
 ## Routes (Blueprints)
 
-### CRUD Pattern
+### Data Blueprints
 
-Standard CRUD blueprints (`players`, `games`, `player_games`, `achievements`, `player_achievements`, `data_sources`) follow this pattern:
+All data blueprints require `@auth_required`. Player-scoped routes (`player_games`, `player_achievements`) use the logged-in player from the JWT and ignore any `player_id` query parameter.
 
-- `GET /` — List all (with optional query parameter filters)
-- `GET /<id>` — Get one by primary key
-- `POST /` — Create (validates required fields, checks duplicates → 409)
-- `PUT /<id>` — Update (partial updates supported)
-- `DELETE /<id>` — Delete
+- `games` — `GET /` list, `GET /<id>`
+- `achievements` — `GET /?game_id=`
+- `player_games` — `GET /` (`?tracked=true`), `PUT /<id>` (only `is_tracked` is writable; 404 for another player's record)
+- `player_achievements` — `GET /?game_id=` (`&unlocked=true`)
+- `data_sources` — `GET /?game_id=`, `POST /`, `PUT /<id>`, `DELETE /<id>` (writes need the game in the caller's library)
 
 ### Special Blueprints
 
@@ -282,21 +281,20 @@ Applied to sync and AI routes. It:
 
 ## API Endpoints
 
-**Total: 37 endpoints** across 10 blueprints + 1 health check.
+**Total: 19 endpoints** across 9 blueprints + 1 health check.
 
 | Prefix                     | Blueprint           | Auth  | Endpoints                                   |
 | -------------------------- | ------------------- | ----- | ------------------------------------------- |
 | `/api/health`              | (inline)            | No    | 1 (GET)                                     |
 | `/api/auth`                | auth                | Mixed | 4 (login, callback, me, logout)             |
-| `/api/players`             | players             | No    | 5 (CRUD)                                    |
-| `/api/games`               | games               | No    | 5 (CRUD)                                    |
-| `/api/player-games`        | player_games        | No    | 5 (CRUD)                                    |
-| `/api/achievements`        | achievements        | No    | 5 (CRUD)                                    |
-| `/api/player-achievements` | player_achievements | No    | 5 (CRUD)                                    |
-| `/api/data-sources`        | data_sources        | No    | 4 (CRUD only — no scrape, no auto-discover) |
+| `/api/games`               | games               | Yes   | 2 (list, get)                               |
+| `/api/player-games`        | player_games        | Yes   | 2 (list, update `is_tracked`)               |
+| `/api/achievements`        | achievements        | Yes   | 1 (list)                                    |
+| `/api/player-achievements` | player_achievements | Yes   | 1 (list)                                    |
+| `/api/data-sources`        | data_sources        | Yes   | 4 (CRUD only — no scrape, no auto-discover) |
 | `/api/sync`                | sync                | Yes   | 2 (games, achievements)                     |
 | `/api/ai`                  | ai                  | Yes   | 1 (achievement-tip)                         |
-| `/api/steamgriddb`         | steamgriddb         | No    | 1 (grid image proxy)                        |
+| `/api/steamgriddb`         | steamgriddb         | Yes   | 1 (grid image proxy)                        |
 
 ### Full Endpoint Reference
 
@@ -310,12 +308,16 @@ Applied to sync and AI routes. It:
 | POST                | `/api/sync/games`                          | Bearer | Sync all owned games from Steam          |
 | POST                | `/api/sync/achievements/<app_id>`          | Bearer | Sync achievements for one game           |
 | POST                | `/api/ai/achievement-tip/<achievement_id>` | Bearer | Generate AI tip for a single achievement |
-| GET                 | `/api/data-sources`                        | No     | List bookmarks for a game (`?game_id=`)  |
-| POST                | `/api/data-sources`                        | No     | Add a bookmark                           |
-| PUT                 | `/api/data-sources/<id>`                   | No     | Update a bookmark                        |
-| DELETE              | `/api/data-sources/<id>`                   | No     | Delete a bookmark                        |
-| GET                 | `/api/steamgriddb/grid/<app_id>`           | No     | Get high-res artwork URL                 |
-| GET/POST/PUT/DELETE | `/api/players`, `/api/games`, etc.         | No     | Standard CRUD for all 5 entity types     |
+| GET                 | `/api/data-sources`                        | Bearer | List bookmarks for a game (`?game_id=`)  |
+| POST                | `/api/data-sources`                        | Bearer | Add a bookmark                           |
+| PUT                 | `/api/data-sources/<id>`                   | Bearer | Update a bookmark                        |
+| DELETE              | `/api/data-sources/<id>`                   | Bearer | Delete a bookmark                        |
+| GET                 | `/api/steamgriddb/grid/<app_id>`           | Bearer | Get high-res artwork URL                 |
+| GET                 | `/api/games`, `/api/games/<id>`            | Bearer | List games / get one game                |
+| GET                 | `/api/achievements`                        | Bearer | List a game's achievements (`?game_id=`) |
+| GET                 | `/api/player-games`                        | Bearer | Caller's games (`?tracked=true`)         |
+| PUT                 | `/api/player-games/<id>`                   | Bearer | Toggle `is_tracked` on caller's game     |
+| GET                 | `/api/player-achievements`                 | Bearer | Caller's unlocks (`?game_id=`)           |
 
 ---
 

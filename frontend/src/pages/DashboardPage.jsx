@@ -23,12 +23,12 @@ export default function DashboardPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const { data: pgData } = await playerGamesAPI.list(player.id)
+      const { data: pgData } = await playerGamesAPI.list()
 
       // Fetch achievements for all games concurrently
       const playerAchievementsPromises = pgData.map(async (pg) => {
         if (pg.game?.id) {
-          const { data: paData } = await playerAchievementsAPI.list(player.id, pg.game.id)
+          const { data: paData } = await playerAchievementsAPI.list(pg.game.id)
           return { gameId: pg.game.id, unlockedCount: paData.filter((pa) => pa.unlocked).length }
         }
         return { gameId: pg.game?.id, unlockedCount: 0 }
@@ -50,7 +50,7 @@ export default function DashboardPage() {
         tracked.map(async (pg) => {
           if (!pg.game?.id) return []
           try {
-            const { data: paData } = await playerAchievementsAPI.list(player.id, pg.game.id)
+            const { data: paData } = await playerAchievementsAPI.list(pg.game.id)
             return paData
               .filter((pa) => pa.unlocked && pa.unlock_time)
               .sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time))

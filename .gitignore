@@ -70,3 +70,6 @@ build/
 # Temporary files
 .tmp/
 tmp/
+
+# Brainstorm companion scratch files
+.superpowers/

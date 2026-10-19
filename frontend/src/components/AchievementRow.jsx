@@ -6,6 +6,7 @@ export default function AchievementRow({ achievement, unlocked, unlockTime, game
   const [imgFailed, setImgFailed] = useState(false)
   const src = unlocked ? achievement.icon_url : (achievement.icon_gray_url || achievement.icon_url)
   const pct = achievement.global_percent
+  const status = unlocked ? (unlockTime ? `Unlocked ${formatDate(unlockTime)}` : 'Unlocked') : 'Locked'
   const Tag = onSelect ? 'button' : 'div'
 
   return (
@@ -22,13 +23,16 @@ export default function AchievementRow({ achievement, unlocked, unlockTime, game
         </span>
         <span className="min-w-0">
           {gameName && <span className="block truncate text-[11px] text-faint">{gameName}</span>}
-          <span className={`block truncate font-medium ${unlocked ? '' : 'text-muted'}`}>{achievement.display_name}</span>
+          <span className={`block truncate font-medium ${unlocked ? '' : 'text-muted'}`}>
+            {achievement.display_name}
+            <span className="sr-only">{`, ${status}`}</span>
+          </span>
           <span className="block truncate text-xs text-muted">{achievement.description || 'Hidden achievement'}</span>
         </span>
       </span>
       <span className="text-right">{pct == null ? '' : `${Number(pct).toFixed(1)}%`}</span>
       <span className="flex max-[860px]:hidden"><RarityBadge tier={achievement.rarity_tier} /></span>
-      <span className={`whitespace-nowrap text-xs max-[860px]:hidden ${unlocked ? 'text-text' : 'text-muted'}`}>
+      <span aria-hidden="true" className={`whitespace-nowrap text-xs max-[860px]:hidden ${unlocked ? 'text-text' : 'text-muted'}`}>
         {unlocked ? (unlockTime ? formatDate(unlockTime) : 'Unlocked') : 'Locked'}
       </span>
     </Tag>

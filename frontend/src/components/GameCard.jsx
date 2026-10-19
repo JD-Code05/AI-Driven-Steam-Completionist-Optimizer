@@ -6,7 +6,7 @@ import api from '../services/api'
 // Module-level cache so each app_id is only fetched once per session
 const imageCache = new Map()
 
-export default function GameCard({ game, playerGame, unlockedCount, totalAchievements }) {
+export default function GameCard({ game, unlockedCount, totalAchievements }) {
   const total = totalAchievements ?? 0
   const unlocked = unlockedCount ?? 0
 
@@ -20,7 +20,7 @@ export default function GameCard({ game, playerGame, unlockedCount, totalAchieve
     }
     return fallbackUrl
   })
-  const [imgError, setImgError] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (!game.app_id) return
@@ -33,7 +33,7 @@ export default function GameCard({ game, playerGame, unlockedCount, totalAchieve
         if (cancelled) return
         const url = data?.url || null
         imageCache.set(game.app_id, url)
-        if (url) setImageUrl(url)
+        if (url) { setImageUrl(url); setFailed(false) }
       })
       .catch(() => {
         if (!cancelled) imageCache.set(game.app_id, null)
@@ -42,45 +42,39 @@ export default function GameCard({ game, playerGame, unlockedCount, totalAchieve
     return () => { cancelled = true }
   }, [game.app_id])
 
-  const displayUrl = imgError ? fallbackUrl : imageUrl
+  const displayUrl = failed ? null : imageUrl
+  const perfect = total > 0 && unlocked >= total
 
   return (
-    <Link
-      to={`/games/${game.id}`}
-      className="group block bg-surface-light rounded-xl overflow-hidden border border-gray-800 hover:border-steam-blue/50 transition-all duration-200 hover:shadow-lg hover:shadow-steam-blue/10"
-    >
-      {displayUrl ? (
-        <div className="aspect-[2/3] overflow-hidden bg-gray-900">
+    <Link to={`/games/${game.id}`} className="group block text-left focus-visible:outline-none">
+      <div className="aspect-[2/3] overflow-hidden rounded-md bg-track transition-[transform,box-shadow] duration-200 ease-[var(--ease-out)] group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ink motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:-translate-y-[3px] motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:shadow-[0_8px_18px_rgba(0,0,0,.18)]">
+        {displayUrl ? (
           <img
             src={displayUrl}
-            alt={game.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            alt=""
+            className="size-full object-cover"
             onError={() => {
-              if (!imgError) {
-                setImgError(true)
-                setImageUrl(fallbackUrl)
-              }
+              // grid art failed -> Steam CDN fallback; fallback failed -> initial placeholder
+              if (fallbackUrl && imageUrl !== fallbackUrl) setImageUrl(fallbackUrl)
+              else setFailed(true)
             }}
           />
-        </div>
-      ) : (
-        <div className="aspect-[2/3] bg-gradient-to-br from-steam-dark to-steam-light flex items-center justify-center">
-          <span className="text-4xl font-bold text-gray-500">{game.name?.[0] || '?'}</span>
-        </div>
-      )}
-      <div className="p-4 text-left">
-        <h3 className="font-semibold text-sm text-white truncate mb-2">{game.name}</h3>
-        {total > 0 ? (
-          <ProgressBar value={unlocked} max={total} size="sm" />
         ) : (
-          <p className="text-xs text-gray-500">No achievements</p>
-        )}
-        {playerGame?.playtime_hours > 0 && (
-          <p className="text-xs text-gray-500 mt-2">
-            {playerGame.playtime_hours}h played
-          </p>
+          <div className="grid size-full place-items-center text-4xl font-bold text-faint">{game.name?.[0] || '?'}</div>
         )}
       </div>
+      <h3 className="mt-1.5 truncate font-medium">{game.name}</h3>
+      {total > 0 ? (
+        <>
+          <div className="flex justify-between text-xs text-muted">
+            <span>{unlocked} / {total}</span>
+            {perfect ? <span className="font-semibold text-ultra">Perfect</span> : <span>{Math.round((unlocked / total) * 100)}%</span>}
+          </div>
+          <div className="mt-2"><ProgressBar value={unlocked} max={total} tone={perfect ? 'ultra' : 'ink'} /></div>
+        </>
+      ) : (
+        <p className="text-xs text-muted">No achievements</p>
+      )}
     </Link>
   )
 }

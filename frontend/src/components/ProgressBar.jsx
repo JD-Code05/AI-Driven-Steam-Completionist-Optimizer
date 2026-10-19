@@ -1,22 +1,12 @@
-export default function ProgressBar({ value, max = 100, size = 'md', showLabel = true }) {
-  const percent = max > 0 ? Math.round((value / max) * 100) : 0
+const tones = {
+  ink: 'bg-ink', ultra: 'bg-ultra', common: 'bg-common', uncommon: 'bg-uncommon', rare: 'bg-rare',
+}
 
-  const heights = { sm: 'h-1.5', md: 'h-2.5', lg: 'h-4' }
-
+export default function ProgressBar({ value, max, tone = 'ink' }) {
+  const percent = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0
   return (
-    <div className="w-full">
-      {showLabel && (
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span>{value} / {max}</span>
-          <span>{percent}%</span>
-        </div>
-      )}
-      <div className={`w-full bg-gray-700 rounded-full overflow-hidden ${heights[size] || heights.md}`}>
-        <div
-          className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-steam-blue to-steam-accent"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+    <div className="h-1 w-full overflow-hidden rounded-[2px] bg-track">
+      <i className={`block h-full ${tones[tone] || tones.ink}`} style={{ width: `${percent}%` }} />
     </div>
   )
 }

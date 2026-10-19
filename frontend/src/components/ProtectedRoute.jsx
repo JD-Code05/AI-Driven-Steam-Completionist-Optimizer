@@ -1,8 +1,10 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProtectedRoute({ children }) {
   const { player, loading } = useAuth()
+  // The auth callback reports failures as ?error= on the return URL; carry it to the login page.
+  const error = new URLSearchParams(useLocation().search).get('error')
 
   if (loading) {
     return (
@@ -13,7 +15,7 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!player) {
-    return <Navigate to="/login" replace />
+    return <Navigate to={error ? `/login?error=${encodeURIComponent(error)}` : '/login'} replace />
   }
 
   return children

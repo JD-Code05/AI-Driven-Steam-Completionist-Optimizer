@@ -115,3 +115,22 @@
   .knob, .core, .mask-dot, .rays, .star, .cloud { transition-duration: 150ms; transition-delay: 0ms; }
   [data-theme="dark"] .rays { transform: none; }
 }
+
+/* ===== Login cover wall (LoginPage.jsx) ===== */
+/* contain: size keeps the looping columns from setting the page height; the mask is a fade, not decoration. */
+.wall { position: relative; overflow: hidden; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+        padding: 0 14px; border-left: 1px solid var(--border); contain: size;
+        -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+                mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent); }
+.wall-col { display: flex; flex-direction: column; gap: 14px; animation: drift var(--dur) linear infinite; }
+.wall-col:nth-child(2) { animation-direction: reverse; margin-top: -120px; }
+.wall-col img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; background: var(--border); }
+@keyframes drift { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@media (max-width: 820px) {
+  .wall { order: -1; height: 240px; border-left: 0; border-bottom: 1px solid var(--border);
+          grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 10px; }
+  .wall-col { gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wall-col { animation: none; }
+}

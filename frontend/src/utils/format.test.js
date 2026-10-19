@@ -17,3 +17,14 @@ test('timeAgo: never, just now, minutes, hours, days', () => {
 test('formatDate: en-US short date', () => {
   assert.equal(formatDate('2026-03-12T10:00:00Z'), 'Mar 12, 2026')
 })
+
+test('timeAgo: naive backend timestamps are UTC, offset-carrying ones are unchanged', () => {
+  assert.equal(timeAgo('2026-10-19T11:56:00', now), '4 min ago')
+  assert.equal(timeAgo('2026-10-19T11:56:00+00:00', now), '4 min ago')
+  assert.equal(timeAgo('2026-10-19T11:56:00Z', now), '4 min ago')
+  assert.equal(timeAgo('2026-10-19T19:56:00+08:00', now), '4 min ago')
+})
+
+test('formatDate: naive timestamp equals the same instant with Z', () => {
+  assert.equal(formatDate('2026-03-12T10:00:00'), formatDate('2026-03-12T10:00:00Z'))
+})

@@ -1,32 +1,117 @@
 @import "tailwindcss";
 
-@theme {
-  --color-steam-dark: #1b2838;
-  --color-steam-blue: #1a9fff;
-  --color-steam-light: #2a475e;
-  --color-steam-accent: #66c0f4;
-
-  --color-rarity-common: #9ca3af;
-  --color-rarity-uncommon: #3b82f6;
-  --color-rarity-rare: #f59e0b;
-  --color-rarity-ultra: #a855f7;
-
-  --color-surface: #111827;
-  --color-surface-light: #1f2937;
-  --color-surface-lighter: #374151;
+/* Theme tokens: index.html sets data-theme on <html> before React loads (no flash). */
+[data-theme="light"] {
+  --bg: #f6f5f2; --surface: #ffffff; --hover: #f1f0ec; --border: #e4e2dc; --border-strong: #d3d0c8;
+  --text: #1a1a18; --muted: #6b6963; --faint: #9c9a93;
+  --ink: #1a1a18; --on-ink: #ffffff; --track: #ebe9e4;
+  --common: #77746c; --common-bg: #efeee9;
+  --uncommon: #2f7d4f; --uncommon-bg: #e6f2ea;
+  --rare: #2f5fc4; --rare-bg: #e9eff9;
+  --ultra: #a8650f; --ultra-bg: #fbf1e1;
+  --warn: #9a4a12; --warn-bg: #fdf0e6;
+  --scrim: rgba(20, 20, 18, .35);
+  --sky: #bcdcf3; --knob: #ffffff; --sun: #f2b233;
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --bg: #111110; --surface: #1a1a19; --hover: #222220; --border: #2a2927; --border-strong: #383633;
+  --text: #edece8; --muted: #9b9891; --faint: #6d6b65;
+  --ink: #edece8; --on-ink: #111110; --track: #2a2927;
+  --common: #a19e96; --common-bg: #232321;
+  --uncommon: #6cc28f; --uncommon-bg: #17281e;
+  --rare: #86a9f0; --rare-bg: #1b2333;
+  --ultra: #e5ad55; --ultra-bg: #2e2416;
+  --warn: #f0a46a; --warn-bg: #2c1e14;
+  --scrim: rgba(0, 0, 0, .55);
+  --sky: #232a3d; --knob: #3b4257; --sun: #e9e6f2;
+  color-scheme: dark;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-hover: var(--hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-track: var(--track);
+  --color-common: var(--common);
+  --color-common-bg: var(--common-bg);
+  --color-uncommon: var(--uncommon);
+  --color-uncommon-bg: var(--uncommon-bg);
+  --color-rare: var(--rare);
+  --color-rare-bg: var(--rare-bg);
+  --color-ultra: var(--ultra);
+  --color-ultra-bg: var(--ultra-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-scrim: var(--scrim);
 }
-::-webkit-scrollbar-track {
-  background: var(--color-surface);
+
+/* static: always emitted, since the switch CSS and theme.js read them as plain variables */
+@theme static {
+  --font-sans: Geist, system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
-::-webkit-scrollbar-thumb {
-  background: var(--color-surface-lighter);
-  border-radius: 3px;
+
+@layer base {
+  * { border-color: var(--border); }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-sans); font-size: 14px; line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+
+/* Theme change: circle reveal via View Transitions (theme.js); otherwise a plain color crossfade. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+@supports not (view-transition-name: none) {
+  body { transition: background-color 300ms ease, color 300ms ease; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body { transition: background-color 300ms ease, color 300ms ease; }
+}
+
+/* ===== Day / night switch (ThemeSwitch.jsx) ===== */
+.theme-switch { position: relative; width: 58px; height: 30px; padding: 0; border: 0; border-radius: 999px;
+                background: var(--sky); cursor: pointer; overflow: hidden; flex: none;
+                transition: background-color 450ms ease;
+                box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.theme-switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.knob { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+        background: var(--knob); display: grid; place-items: center;
+        box-shadow: 0 1px 2px rgba(0,0,0,.18);
+        transition: transform 450ms var(--ease-in-out), background-color 450ms ease; }
+[data-theme="dark"] .knob { transform: translateX(28px); }
+.knob svg { width: 20px; height: 20px; overflow: visible; }
+.core { fill: var(--sun); transform-box: fill-box; transform-origin: center;
+        transition: fill 450ms ease, transform 450ms var(--ease-in-out); }
+[data-theme="dark"] .core { transform: scale(1.45); }
+.mask-dot { transition: transform 450ms var(--ease-in-out); }
+[data-theme="dark"] .mask-dot { transform: translate(-8px, 6px); }
+.rays { stroke: var(--sun); stroke-width: 2; stroke-linecap: round;
+        transform-box: view-box; transform-origin: 12px 12px;
+        transition: transform 450ms var(--ease-in-out), opacity 250ms ease; }
+[data-theme="dark"] .rays { transform: rotate(-90deg) scale(.5); opacity: 0; }
+.star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff;
+        opacity: 0; transform: translateY(4px);
+        transition: opacity 300ms ease, transform 450ms var(--ease-out); }
+.star:nth-child(1) { top: 8px; left: 10px; }
+.star:nth-child(2) { top: 17px; left: 17px; width: 2px; height: 2px; transition-delay: 60ms; }
+.star:nth-child(3) { top: 6px; left: 22px; width: 2px; height: 2px; transition-delay: 120ms; }
+[data-theme="dark"] .star { opacity: .9; transform: none; transition-delay: 150ms; }
+.cloud { position: absolute; right: 7px; top: 10px; width: 16px; height: 7px; border-radius: 999px;
+         background: #fff; opacity: .9; transition: opacity 250ms ease, transform 450ms var(--ease-out); }
+[data-theme="dark"] .cloud { opacity: 0; transform: translateX(8px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .knob, .core, .mask-dot, .rays, .star, .cloud { transition-duration: 150ms; transition-delay: 0ms; }
+  [data-theme="dark"] .rays { transform: none; }
 }

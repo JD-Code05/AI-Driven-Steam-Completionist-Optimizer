@@ -20,3 +20,10 @@ test('readStoredTheme: only light/dark are accepted', () => {
 test('readStoredTheme: blocked storage reads as nothing stored', () => {
   assert.equal(readStoredTheme({ getItem: () => { throw new Error('blocked') } }), null)
 })
+
+test('readStoredTheme: reaching window.localStorage itself throwing reads as nothing stored', (t) => {
+  const before = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', { get() { throw new Error('blocked') }, configurable: true })
+  t.after(() => before ? Object.defineProperty(globalThis, 'localStorage', before) : delete globalThis.localStorage)
+  assert.equal(readStoredTheme(), null)
+})

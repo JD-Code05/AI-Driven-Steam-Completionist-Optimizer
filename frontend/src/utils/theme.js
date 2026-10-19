@@ -4,9 +4,10 @@
 
 export const THEME_KEY = 'theme'
 
-export function readStoredTheme(storage = localStorage) {
+export function readStoredTheme(storage) {
   try {
-    const value = storage.getItem(THEME_KEY)
+    // Resolved inside the try: just reading window.localStorage throws when site data is blocked.
+    const value = (storage ?? localStorage).getItem(THEME_KEY)
     return value === 'light' || value === 'dark' ? value : null
   } catch {
     return null

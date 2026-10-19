@@ -1,11 +1,12 @@
 from flask import Blueprint, jsonify
-from ..models.game import Game
 from ..services.steamgriddb import SteamGridDBService
+from ..utils.auth import auth_required
 
 steamgriddb_bp = Blueprint('steamgriddb', __name__)
 
 
 @steamgriddb_bp.route('/grid/<int:app_id>', methods=['GET'])
+@auth_required
 def get_grid_image(app_id):
     """
     Return the best high-quality portrait grid image URL for a game

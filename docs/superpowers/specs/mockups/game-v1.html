@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game page mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+          --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1); }
+  [data-theme="light"] {
+    --bg: #f6f5f2; --surface: #ffffff; --hover: #f1f0ec; --border: #e4e2dc; --border-strong: #d3d0c8;
+    --text: #1a1a18; --muted: #6b6963; --faint: #9c9a93; --ink: #1a1a18; --on-ink: #ffffff; --track: #ebe9e4;
+    --common: #77746c; --uncommon: #2f7d4f; --rare: #2f5fc4; --ultra: #a8650f;
+    --common-bg: #efeee9; --uncommon-bg: #e6f2ea; --rare-bg: #e9eff9; --ultra-bg: #fbf1e1;
+    --warn: #9a4a12; --warn-bg: #fdf0e6; --scrim: rgba(20,20,18,.35);
+    --sky: #bcdcf3; --knob: #ffffff; --sun: #f2b233; color-scheme: light;
+  }
+  [data-theme="dark"] {
+    --bg: #111110; --surface: #1a1a19; --hover: #222220; --border: #2a2927; --border-strong: #383633;
+    --text: #edece8; --muted: #9b9891; --faint: #6d6b65; --ink: #edece8; --on-ink: #111110; --track: #2a2927;
+    --common: #a19e96; --uncommon: #6cc28f; --rare: #86a9f0; --ultra: #e5ad55;
+    --common-bg: #232321; --uncommon-bg: #17281e; --rare-bg: #1b2333; --ultra-bg: #2e2416;
+    --warn: #f0a46a; --warn-bg: #2c1e14; --scrim: rgba(0,0,0,.55);
+    --sky: #232a3d; --knob: #3b4257; --sun: #e9e6f2; color-scheme: dark;
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Geist, system-ui, sans-serif;
+               font-size: 14px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+  html:not(.vt) body { transition: background-color 300ms ease, color 300ms ease; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  button { font: inherit; color: inherit; }
+  a { color: inherit; }
+
+  /* Nav */
+  .nav { display: flex; align-items: center; gap: 24px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .brand { font-weight: 700; letter-spacing: -.01em; }
+  .nav a { color: var(--muted); text-decoration: none; font-weight: 500; }
+  .nav .right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .avatar { width: 28px; height: 28px; border-radius: 6px; background: var(--border-strong); }
+
+  .main { max-width: 1160px; margin: 0 auto; padding: 16px 20px 48px; }
+  .crumb { color: var(--muted); font-size: 13px; text-decoration: none; display: inline-block; margin-bottom: 12px; }
+
+  /* Header */
+  .hero { width: 100%; aspect-ratio: 1920 / 620; max-height: 240px; object-fit: cover; border-radius: 12px; display: block; background: var(--track); }
+  .head { display: flex; align-items: flex-end; gap: 16px; margin: 18px 0 18px; flex-wrap: wrap; }
+  .head h1 { margin: 0; font-size: 28px; letter-spacing: -.03em; line-height: 1.1; }
+  .head p { margin: 4px 0 0; color: var(--muted); }
+  .head .actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 7px; padding: 8px 14px; font-weight: 600; font-size: 13px;
+         cursor: pointer; border: 1px solid var(--border-strong); background: var(--surface);
+         transition: transform 120ms var(--ease-out), background-color 150ms ease; }
+  .btn:active { transform: scale(.97); }
+  .btn.ink { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .btn[aria-pressed="true"] { background: var(--hover); }
+  .btn svg { width: 15px; height: 15px; }
+  .btn:focus-visible, .row:focus-visible, .seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* Progress strip: completion + rarity in one line */
+  .strip { display: grid; grid-template-columns: 1.3fr repeat(4, 1fr); border: 1px solid var(--border); border-radius: 10px;
+           background: var(--surface); margin-bottom: 24px; }
+  .strip > div { padding: 12px 16px; }
+  .strip > div + div { border-left: 1px solid var(--border); }
+  .strip b { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .strip small { color: var(--muted); font-size: 12px; display: block; }
+  .strip .of { color: var(--muted); font-size: 14px; font-weight: 500; }
+  .bar { height: 4px; background: var(--track); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--ink); }
+  .t-common b { color: var(--common); } .t-uncommon b { color: var(--uncommon); } .t-rare b { color: var(--rare); } .t-ultra b { color: var(--ultra); }
+  .t-common .bar i { background: var(--common); } .t-uncommon .bar i { background: var(--uncommon); }
+  .t-rare .bar i { background: var(--rare); } .t-ultra .bar i { background: var(--ultra); }
+
+  .layout { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
+
+  /* Toolbar */
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; padding: 2px; background: var(--surface); }
+  .seg button { border: 0; background: transparent; padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor: pointer;
+                transition: background-color 150ms ease, color 150ms ease; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+  .seg button span { opacity: .7; margin-left: 3px; }
+  .search { flex: 1; min-width: 140px; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 8px;
+            background: var(--surface); color: var(--text); font: inherit; }
+  select.sort { padding: 7px 8px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+
+  /* Achievement list */
+  .list { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: 1fr 90px 100px 110px; gap: 12px; align-items: center; width: 100%; text-align: left;
+         padding: 9px 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; cursor: pointer;
+         transition: background-color 150ms ease; }
+  .row:last-child { border-bottom: 0; }
+  @media (hover: hover) and (pointer: fine) { .row:hover { background: var(--hover); } }
+  .row[aria-current="true"] { background: var(--hover); box-shadow: inset 2px 0 0 var(--ink); }
+  .head-row { display: grid; grid-template-columns: 1fr 90px 100px 110px; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--border);
+              font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; }
+  .num { text-align: right; }
+  .ach { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .icon { width: 34px; height: 34px; border-radius: 6px; flex: none; display: grid; place-items: center; font-weight: 700; font-size: 12px;
+          background: var(--track); color: var(--muted); }
+  .locked .icon { opacity: .45; }
+  .locked .name { color: var(--muted); }
+  .name { font-weight: 500; }
+  .desc { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rar { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; justify-self: start; }
+  .r-common { color: var(--common); background: var(--common-bg); } .r-uncommon { color: var(--uncommon); background: var(--uncommon-bg); }
+  .r-rare { color: var(--rare); background: var(--rare-bg); } .r-ultra { color: var(--ultra); background: var(--ultra-bg); }
+  .when { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .when.done { color: var(--text); }
+
+  /* Side column */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+  .card h3 { font-size: 13px; margin: 0 0 4px; }
+  .card .sub { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+  .src { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); align-items: flex-start; }
+  .src .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; color: var(--faint); width: 44px; flex: none; padding-top: 2px; }
+  .src a { font-weight: 500; text-decoration: none; display: block; }
+  .src small { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--uncommon); display: inline-block; }
+  .dot.wait { background: var(--faint); }
+  .add { display: flex; gap: 6px; margin-top: 10px; }
+  .add input { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+
+  /* ===== Achievement drawer ===== */
+  .scrim { position: fixed; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity 300ms ease; z-index: 20; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); background: var(--surface); border-left: 1px solid var(--border);
+            z-index: 21; display: flex; flex-direction: column; transform: translateX(100%); visibility: hidden;
+            transition: transform 380ms var(--ease-drawer), visibility 0s linear 380ms;
+            box-shadow: -24px 0 48px rgba(0,0,0,.12); }
+  body.open .scrim { opacity: 1; pointer-events: auto; }
+  body.open .drawer { transform: none; visibility: visible; transition: transform 380ms var(--ease-drawer), visibility 0s; }
+  .d-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .d-top span { font-size: 12px; color: var(--muted); }
+  .x { border: 0; background: transparent; width: 32px; height: 32px; border-radius: 7px; cursor: pointer; display: grid; place-items: center; color: var(--muted); }
+  .x:hover { background: var(--hover); color: var(--text); }
+  .x:focus-visible { outline: 2px solid var(--ink); }
+  .d-body { overflow-y: auto; padding: 20px 20px 28px; overscroll-behavior: contain; }
+  .d-hero { display: flex; gap: 14px; align-items: flex-start; }
+  .d-hero .icon { width: 64px; height: 64px; border-radius: 10px; font-size: 18px; }
+  .d-hero h2 { margin: 0 0 6px; font-size: 20px; letter-spacing: -.02em; line-height: 1.2; }
+  .d-hero p { margin: 8px 0 0; color: var(--muted); }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--track); color: var(--muted); }
+  .pill.ok { background: var(--uncommon-bg); color: var(--uncommon); }
+  .players { margin: 18px 0 22px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .players b { font-size: 18px; }
+  .players span { color: var(--muted); font-size: 13px; }
+  .players .bar i { background: var(--ultra); }
+
+  .guide-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .guide-h h3 { font-size: 15px; margin: 0; }
+  .link-btn { border: 0; background: none; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .basis { color: var(--muted); font-size: 12px; margin: 0 0 16px; }
+  .sec { margin-bottom: 18px; }
+  .sec h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 0 0 8px; }
+  .sec ol { margin: 0; padding-left: 20px; }
+  .sec li { margin-bottom: 6px; }
+  .sec li::marker { color: var(--faint); font-weight: 600; }
+  .time { display: inline-flex; align-items: baseline; gap: 8px; }
+  .time b { font-size: 18px; }
+  .time span { color: var(--muted); font-size: 13px; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
+  .warn ol { padding-left: 18px; }
+  .more { border-top: 1px solid var(--border); padding-top: 14px; display: flex; gap: 16px; font-size: 13px; }
+  .more a { color: var(--muted); }
+  .empty { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 20px; text-align: center; }
+  .empty p { color: var(--muted); margin: 6px 0 14px; font-size: 13px; }
+  .skel { height: 10px; border-radius: 4px; background: var(--track); margin: 10px 0; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  /* Guide sections arrive one after another */
+  .reveal > * { opacity: 0; transform: translateY(6px); animation: rise 260ms var(--ease-out) forwards; }
+  .reveal > *:nth-child(2) { animation-delay: 50ms; } .reveal > *:nth-child(3) { animation-delay: 100ms; }
+  .reveal > *:nth-child(4) { animation-delay: 150ms; } .reveal > *:nth-child(5) { animation-delay: 200ms; }
+  .reveal > *:nth-child(6) { animation-delay: 250ms; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* Mobile */
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .strip { grid-template-columns: repeat(4, 1fr); }
+    .strip > div:first-child { grid-column: 1 / -1; border-bottom: 1px solid var(--border); }
+    .strip > div:nth-child(2) { border-left: 0; }
+    .row, .head-row { grid-template-columns: 1fr 70px; }
+    .row .rar, .row .when, .head-row .c3, .head-row .c4 { display: none; }
+    .head .actions { margin-left: 0; }
+    .drawer { top: auto; left: 0; width: 100%; height: 88vh; border-left: 0; border-top: 1px solid var(--border);
+              border-radius: 14px 14px 0 0; transform: translateY(100%); }
+  }
+  @media (max-width: 520px) { .strip > div { padding: 10px 12px; } .strip b { font-size: 18px; }
+    .nav { gap: 12px; padding: 12px 16px; } .nav .right .avatar { display: none; } .main { padding: 16px 16px 48px; } }
+
+  /* Day / night switch (same component as the dashboard) */
+  .theme-switch { position: relative; width: 58px; height: 30px; padding: 0; border: 0; border-radius: 999px; background: var(--sky); cursor: pointer;
+                  overflow: hidden; transition: background-color 450ms ease; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+  .theme-switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .knob { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--knob); display: grid; place-items: center;
+          box-shadow: 0 1px 2px rgba(0,0,0,.18); transition: transform 450ms var(--ease-in-out), background-color 450ms ease; }
+  [data-theme="dark"] .knob { transform: translateX(28px); }
+  .knob svg { width: 20px; height: 20px; overflow: visible; }
+  .core { fill: var(--sun); transform-box: fill-box; transform-origin: center; transition: fill 450ms ease, transform 450ms var(--ease-in-out); }
+  [data-theme="dark"] .core { transform: scale(1.45); }
+  .mask-dot { transition: transform 450ms var(--ease-in-out); }
+  [data-theme="dark"] .mask-dot { transform: translate(-8px, 6px); }
+  .rays { stroke: var(--sun); stroke-width: 2; stroke-linecap: round; transform-box: view-box; transform-origin: 12px 12px;
+          transition: transform 450ms var(--ease-in-out), opacity 250ms ease; }
+  [data-theme="dark"] .rays { transform: rotate(-90deg) scale(.5); opacity: 0; }
+  .star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; opacity: 0; transform: translateY(4px);
+          transition: opacity 300ms ease, transform 450ms var(--ease-out); }
+  .star:nth-child(2) { top: 8px; left: 10px; }
+  .star:nth-child(3) { top: 17px; left: 17px; width: 2px; height: 2px; transition-delay: 60ms; }
+  .star:nth-child(4) { top: 6px; left: 22px; width: 2px; height: 2px; transition-delay: 120ms; }
+  [data-theme="dark"] .star { opacity: .9; transform: none; transition-delay: 150ms; }
+  .cloud { position: absolute; right: 7px; top: 10px; width: 16px; height: 7px; border-radius: 999px; background: #fff; opacity: .9;
+           transition: opacity 250ms ease, transform 450ms var(--ease-out); }
+  [data-theme="dark"] .cloud { opacity: 0; transform: translateX(8px); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drawer, body.open .drawer { transition: opacity 200ms ease, visibility 0s linear 200ms; transform: none; opacity: 0; }
+    body.open .drawer { opacity: 1; transition: opacity 200ms ease, visibility 0s; }
+    .reveal > * { animation: fade 200ms ease forwards; transform: none; }
+    @keyframes fade { to { opacity: 1; } }
+    .knob, .core, .mask-dot, .rays, .star, .cloud { transition-duration: 150ms; transition-delay: 0ms; }
+    [data-theme="dark"] .rays { transform: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <span class="brand">Completionist</span>
+  <a href="#">Dashboard</a><a href="#">Library</a>
+  <div class="right">
+    <button class="theme-switch" id="themeSwitch" role="switch" aria-checked="false" aria-label="Dark mode">
+      <span class="star"></span><span class="star"></span><span class="star"></span><span class="cloud"></span>
+      <span class="knob"><svg viewBox="0 0 24 24" aria-hidden="true">
+        <defs><mask id="moonMask"><rect x="-6" y="-6" width="36" height="36" fill="white"/><circle class="mask-dot" cx="26" cy="2" r="7" fill="black"/></mask></defs>
+        <g class="rays"><line x1="12" y1="1.5" x2="12" y2="3.5"/><line x1="12" y1="20.5" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="3.5" y2="12"/><line x1="20.5" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="4.6" x2="6" y2="6"/><line x1="18" y1="18" x2="19.4" y2="19.4"/><line x1="4.6" y1="19.4" x2="6" y2="18"/><line x1="18" y1="6" x2="19.4" y2="4.6"/></g>
+        <circle class="core" cx="12" cy="12" r="5" mask="url(#moonMask)"/>
+      </svg></span>
+    </button>
+    <div class="avatar"></div>
+  </div>
+</nav>
+
+<main class="main">
+  <a class="crumb" href="#">← Dashboard</a>
+  <img class="hero" src="https://cdn.cloudflare.steamstatic.com/steam/apps/413150/library_hero.jpg" alt="">
+  <div class="head">
+    <div>
+      <h1>Stardew Valley</h1>
+      <p>182 h played · Synced 2 h ago</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="trackBtn" aria-pressed="true">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1Z"/></svg>Tracking
+      </button>
+      <button class="btn ink">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></svg>Sync
+      </button>
+    </div>
+  </div>
+
+  <div class="strip" id="strip"></div>
+
+  <div class="layout">
+    <section>
+      <div class="toolbar">
+        <div class="seg" id="filter">
+          <button data-f="all" aria-pressed="false">All<span id="cAll"></span></button>
+          <button data-f="locked" aria-pressed="true">Locked<span id="cLocked"></span></button>
+          <button data-f="unlocked" aria-pressed="false">Unlocked<span id="cUnlocked"></span></button>
+        </div>
+        <input class="search" id="search" type="search" placeholder="Search achievements" aria-label="Search achievements">
+        <select class="sort" id="sort" aria-label="Sort">
+          <option value="rare">Rarest first</option>
+          <option value="easy">Most common first</option>
+          <option value="recent">Recently unlocked</option>
+        </select>
+      </div>
+      <div class="list">
+        <div class="head-row"><span>Achievement</span><span class="num">Players</span><span class="c3">Rarity</span><span class="c4">Status</span></div>
+        <div id="rows"></div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <h3>Completion route</h3>
+        <p class="sub">12 left · roughly 40 h of play</p>
+        <button class="btn" style="width:100%;justify-content:center">Open route</button>
+      </div>
+      <div class="card">
+        <h3>Guides</h3>
+        <p class="sub">The AI reads these when it writes tips for this game.</p>
+        <div class="src"><span class="k">Wiki</span><div><a href="#">Stardew Valley Wiki: Achievements</a><small><span class="dot"></span>Read 2 days ago</small></div></div>
+        <div class="src"><span class="k">Guide</span><div><a href="#">Every fish, by season and weather</a><small><span class="dot"></span>Read 2 days ago</small></div></div>
+        <div class="src"><span class="k">Video</span><div><a href="#">Perfection in one year (YouTube)</a><small><span class="dot wait"></span>Reading…</small></div></div>
+        <form class="add" onsubmit="return false"><input type="url" placeholder="Paste a guide link" aria-label="Guide link"><button class="btn">Add</button></form>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+  <div class="d-top"><span>Stardew Valley</span>
+    <button class="x" id="close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  </div>
+  <div class="d-body" id="dBody"></div>
+</div>
+
+<script>
+  // Sample data (made up percentages)
+  const A = [
+    ['GC','Gourmet Chef','Cook every recipe.',2.9,null],
+    ['MA','Master Angler','Catch every fish.',4.2,null],
+    ['L','Legend','Earn 10,000,000g.',3.1,null],
+    ['CC','A Complete Collection','Complete the museum collection.',6.8,null],
+    ['CM','Craft Master','Craft every item.',5.6,null],
+    ['M','Millionaire','Earn 1,000,000g.',12.4,null],
+    ['BF','Best Friends','Reach a 10-heart friend level with 8 people.',14.2,null],
+    ['P','Polyculture','Ship 15 of each crop.',13.1,null],
+    ['MC','Mother Catch','Catch 100 fish.',21.5,'Apr 3, 2026'],
+    ['FH','Full House','Get married and have two kids.',19.8,'Mar 12, 2026'],
+    ['LL','Living Large','Upgrade your house to the maximum size.',24.0,null],
+    ['GN','Good Neighbors','Reach a 5-heart friend level with 10 people.',33.5,'Feb 20, 2026'],
+    ['H','Homesteader','Earn 250,000g.',35.6,'Feb 14, 2026'],
+    ['C','Cowpoke','Earn 50,000g.',62.0,'Feb 2, 2026'],
+    ['G','Greenhorn','Earn 15,000g.',80.1,'Jan 28, 2026'],
+  ].map(([ic, name, desc, pct, when], i) => ({ i, ic, name, desc, pct, when }));
+  const tier = p => p < 5 ? ['ultra','Ultra rare'] : p < 15 ? ['rare','Rare'] : p < 30 ? ['uncommon','Uncommon'] : ['common','Common'];
+
+  const guides = {
+    'Master Angler': {
+      basis: 'Based on 2 of your guides: Stardew Valley Wiki, Every fish by season. Written by Gemini.',
+      steps: ['Catch the seasonal fish first; each season has 3–5 that disappear when it ends.',
+              'Upgrade to an Iridium Rod and use bait; it removes most of the bite delay.',
+              'Use Crab Pots for the 10 trap fish in the ocean and freshwater.',
+              'Leave the five Legendary fish for last; each needs fishing level 3 to 10.'],
+      time: ['1 in-game year', 'about 25–35 h if you fish every rainy day'],
+      warn: ['Seasonal fish only appear in their season. Missing one means waiting a full year.',
+             'The Night Market fish only appear on winter 15–17.'],
+      tips: ['Rainy days spawn the rarest river fish; check the TV weather each morning.',
+             'Trap Bobber plus Dressed Spinner makes Legendaries much easier.'],
+    },
+  };
+
+  let filter = 'locked', sort = 'rare', q = '', current = null;
+  const rows = document.getElementById('rows');
+
+  function renderStrip() {
+    const done = A.filter(a => a.when).length;
+    const by = t => A.filter(a => tier(a.pct)[0] === t);
+    const cell = (t, label) => { const all = by(t), got = all.filter(a => a.when).length;
+      return `<div class="t-${t}"><b>${got}</b> <span class="of">/ ${all.length}</span><small>${label}</small><div class="bar"><i style="width:${all.length ? got / all.length * 100 : 0}%"></i></div></div>`; };
+    document.getElementById('strip').innerHTML =
+      `<div><b>${done}</b> <span class="of">/ ${A.length} · ${Math.round(done / A.length * 100)}%</span><small>Achievements unlocked</small><div class="bar"><i style="width:${done / A.length * 100}%"></i></div></div>`
+      + cell('ultra','Ultra rare') + cell('rare','Rare') + cell('uncommon','Uncommon') + cell('common','Common');
+    document.getElementById('cAll').textContent = A.length;
+    document.getElementById('cLocked').textContent = A.length - done;
+    document.getElementById('cUnlocked').textContent = done;
+  }
+
+  function renderRows() {
+    let list = A.filter(a => filter === 'all' || (filter === 'locked' ? !a.when : a.when))
+                .filter(a => !q || (a.name + ' ' + a.desc).toLowerCase().includes(q));
+    list.sort(sort === 'rare' ? (a, b) => a.pct - b.pct : sort === 'easy' ? (a, b) => b.pct - a.pct
+            : (a, b) => (Date.parse(b.when) || 0) - (Date.parse(a.when) || 0));
+    rows.innerHTML = list.length ? list.map(a => { const [t, label] = tier(a.pct);
+      return `<button class="row ${a.when ? '' : 'locked'}" data-i="${a.i}" ${current === a.i ? 'aria-current="true"' : ''}>
+        <span class="ach"><span class="icon">${a.ic}</span><span style="min-width:0"><span class="name">${a.name}</span><span class="desc" style="display:block">${a.desc}</span></span></span>
+        <span class="num">${a.pct.toFixed(1)}%</span><span class="rar r-${t}">${label}</span>
+        <span class="when ${a.when ? 'done' : ''}">${a.when || 'Locked'}</span></button>`; }).join('')
+      : `<p style="padding:20px;color:var(--muted);margin:0">Nothing matches.</p>`;
+  }
+
+  function guideHTML(a) {
+    const g = guides[a.name] || {
+      basis: 'Based on 2 of your guides. Written by Gemini.',
+      steps: ['(Sample guide text appears here.)', 'Each step is one short, concrete action.'],
+      time: ['2–4 h', 'estimate'], warn: [], tips: ['One or two shortcuts from the guides.'],
+    };
+    return `<div class="reveal">
+      <p class="basis">${g.basis}</p>
+      <div class="sec"><h4>How to unlock</h4><ol>${g.steps.map(s => `<li>${s}</li>`).join('')}</ol></div>
+      <div class="sec"><h4>Time</h4><div class="time"><b>${g.time[0]}</b><span>${g.time[1]}</span></div></div>
+      ${g.warn.length ? `<div class="sec"><h4>Watch out</h4><div class="warn"><ol>${g.warn.map(s => `<li>${s}</li>`).join('')}</ol></div></div>` : ''}
+      <div class="sec"><h4>Tips</h4><ol>${g.tips.map(s => `<li>${s}</li>`).join('')}</ol></div>
+      <div class="more"><a href="#">Steam guides for this</a><a href="#">Search YouTube</a></div></div>`;
+  }
+
+  function openDrawer(i) {
+    const a = A[i], [t, label] = tier(a.pct);
+    current = i; renderRows();
+    const hasGuide = !!guides[a.name];
+    document.getElementById('dBody').innerHTML = `
+      <div class="d-hero"><span class="icon" style="${a.when ? '' : 'opacity:.5'}">${a.ic}</span>
+        <div><h2 id="dTitle">${a.name}</h2>
+          <div class="pills"><span class="rar r-${t}">${label}</span>${a.when ? `<span class="pill ok">Unlocked ${a.when}</span>` : '<span class="pill">Locked</span>'}</div>
+          <p>${a.desc}</p></div></div>
+      <div class="players"><b>${a.pct.toFixed(1)}%</b> <span>of Stardew Valley players have this</span><div class="bar"><i style="width:${a.pct}%"></i></div></div>
+      <div class="guide-h"><h3>Guide</h3>${hasGuide ? '<button class="link-btn" id="regen">Rewrite</button>' : ''}</div>
+      <div id="guide">${hasGuide ? guideHTML(a) : `<div class="empty"><b>No guide yet</b><p>Gemini writes one from the 2 guides you added for this game.</p><button class="btn ink" id="write">Write a guide</button></div>`}</div>`;
+    const write = () => {
+      const box = document.getElementById('guide');
+      box.innerHTML = '<p class="basis">Reading your guides…</p><div class="skel" style="width:92%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:60%"></div>';
+      setTimeout(() => { box.innerHTML = guideHTML(a); }, 1400);
+    };
+    document.getElementById('write')?.addEventListener('click', write);
+    document.getElementById('regen')?.addEventListener('click', write);
+    if (!document.body.classList.contains('open')) {
+      document.body.classList.add('open');
+      setTimeout(() => document.getElementById('close').focus({ preventScroll: true }), 50);
+    }
+  }
+  function closeDrawer() {
+    document.body.classList.remove('open');
+    const btn = rows.querySelector(`[data-i="${current}"]`);
+    current = null; renderRows();
+    rows.querySelector(`[data-i="${btn?.dataset.i}"]`)?.focus({ preventScroll: true });
+  }
+
+  rows.addEventListener('click', e => { const r = e.target.closest('.row'); if (r) openDrawer(+r.dataset.i); });
+  document.getElementById('close').onclick = closeDrawer;
+  document.getElementById('scrim').onclick = closeDrawer;
+  addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('open')) closeDrawer(); });
+  document.getElementById('filter').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+    filter = b.dataset.f; document.querySelectorAll('#filter button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderRows(); });
+  document.getElementById('search').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); renderRows(); });
+  document.getElementById('sort').addEventListener('change', e => { sort = e.target.value; renderRows(); });
+  const track = document.getElementById('trackBtn');
+  track.onclick = () => { const on = track.getAttribute('aria-pressed') !== 'true'; track.setAttribute('aria-pressed', String(on));
+    track.lastChild.textContent = on ? 'Tracking' : 'Track'; };
+
+  renderStrip(); renderRows();
+
+  // Day / night (same as dashboard)
+  const root = document.documentElement, sw = document.getElementById('themeSwitch');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const setTheme = t => { root.dataset.theme = t; sw.setAttribute('aria-checked', String(t === 'dark')); };
+  setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  if (document.startViewTransition) root.classList.add('vt');
+  sw.addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    if (!document.startViewTransition || reduce.matches) return setTheme(next);
+    const r = sw.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(() => setTheme(next)).ready.then(() => root.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+      { duration: 650, easing: 'cubic-bezier(0.77, 0, 0.175, 1)', pseudoElement: '::view-transition-new(root)' }));
+  });
+</script>
+</body>
+</html>

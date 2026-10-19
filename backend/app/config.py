@@ -8,6 +8,7 @@ class Config:
     SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key')
 
     BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
+    FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
     MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
     MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))

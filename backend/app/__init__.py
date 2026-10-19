@@ -18,7 +18,6 @@ def create_app(config_class=Config):
     from .models import player, game, player_game, achievement, player_achievement, data_source, optimization_route  # noqa: F401
 
     # Register blueprints
-    from .routes.players import players_bp
     from .routes.games import games_bp
     from .routes.player_games import player_games_bp
     from .routes.achievements import achievements_bp
@@ -29,7 +28,6 @@ def create_app(config_class=Config):
     from .routes.ai import ai_bp
     from .routes.steamgriddb import steamgriddb_bp
 
-    app.register_blueprint(players_bp, url_prefix='/api/players')
     app.register_blueprint(games_bp, url_prefix='/api/games')
     app.register_blueprint(player_games_bp, url_prefix='/api/player-games')
     app.register_blueprint(achievements_bp, url_prefix='/api/achievements')

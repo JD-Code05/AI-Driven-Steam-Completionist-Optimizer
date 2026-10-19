@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion: carousel and day/night</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  }
+  [data-theme="light"] {
+    --bg: #f6f5f2; --surface: #ffffff; --border: #e4e2dc; --border-strong: #d3d0c8;
+    --text: #1a1a18; --muted: #6b6963; --faint: #9c9a93;
+    --ink: #1a1a18; --on-ink: #ffffff; --track: #ebe9e4;
+    --common: #77746c; --uncommon: #2f7d4f; --rare: #2f5fc4; --ultra: #a8650f;
+    --common-bg: #efeee9; --uncommon-bg: #e6f2ea; --rare-bg: #e9eff9; --ultra-bg: #fbf1e1;
+    --sky: #bcdcf3; --knob: #ffffff; --sun: #f2b233;
+    color-scheme: light;
+  }
+  [data-theme="dark"] {
+    --bg: #111110; --surface: #1a1a19; --border: #2a2927; --border-strong: #383633;
+    --text: #edece8; --muted: #9b9891; --faint: #6d6b65;
+    --ink: #edece8; --on-ink: #111110; --track: #2a2927;
+    --common: #a19e96; --uncommon: #6cc28f; --rare: #86a9f0; --ultra: #e5ad55;
+    --common-bg: #232321; --uncommon-bg: #17281e; --rare-bg: #1b2333; --ultra-bg: #2e2416;
+    --sky: #232a3d; --knob: #3b4257; --sun: #e9e6f2;
+    color-scheme: dark;
+  }
+
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+               font-family: Geist, system-ui, sans-serif; font-size: 14px; line-height: 1.45;
+               font-variant-numeric: tabular-nums; }
+  /* Fallback when View Transitions aren't supported: a plain color crossfade */
+  html:not(.vt) body, html:not(.vt) .surface-t { transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease; }
+
+  .note { max-width: 1100px; margin: 0 auto; padding: 16px 16px 0; color: var(--muted); font-size: 13px; }
+  .note b { color: var(--text); }
+
+  .nav { display: flex; align-items: center; gap: 24px; padding: 12px 20px;
+         border-bottom: 1px solid var(--border); background: var(--surface); margin-top: 12px; }
+  .brand { font-weight: 700; letter-spacing: -.01em; }
+  .nav a { color: var(--muted); text-decoration: none; font-weight: 500; }
+  .nav a.on { color: var(--text); }
+  .nav .right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .avatar { width: 28px; height: 28px; border-radius: 6px; background: var(--border-strong); }
+
+  /* ===== Day / night switch ===== */
+  .theme-switch { position: relative; width: 58px; height: 30px; padding: 0; border: 0; border-radius: 999px;
+                  background: var(--sky); cursor: pointer; overflow: hidden;
+                  transition: background-color 450ms ease;
+                  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+  .theme-switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .knob { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+          background: var(--knob); display: grid; place-items: center;
+          box-shadow: 0 1px 2px rgba(0,0,0,.18);
+          transition: transform 450ms var(--ease-in-out), background-color 450ms ease; }
+  [data-theme="dark"] .knob { transform: translateX(28px); }
+  .knob svg { width: 20px; height: 20px; overflow: visible; }
+  .core { fill: var(--sun); transform-box: fill-box; transform-origin: center;
+          transition: fill 450ms ease, transform 450ms var(--ease-in-out); }
+  [data-theme="dark"] .core { transform: scale(1.45); }
+  .mask-dot { transition: transform 450ms var(--ease-in-out); }
+  [data-theme="dark"] .mask-dot { transform: translate(-8px, 6px); }
+  .rays { stroke: var(--sun); stroke-width: 2; stroke-linecap: round;
+          transform-box: view-box; transform-origin: 12px 12px;
+          transition: transform 450ms var(--ease-in-out), opacity 250ms ease; }
+  [data-theme="dark"] .rays { transform: rotate(-90deg) scale(.5); opacity: 0; }
+  .star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff;
+          opacity: 0; transform: translateY(4px);
+          transition: opacity 300ms ease, transform 450ms var(--ease-out); }
+  .star:nth-child(2) { top: 8px; left: 10px; }
+  .star:nth-child(3) { top: 17px; left: 17px; width: 2px; height: 2px; transition-delay: 60ms; }
+  .star:nth-child(4) { top: 6px; left: 22px; width: 2px; height: 2px; transition-delay: 120ms; }
+  [data-theme="dark"] .star { opacity: .9; transform: none; transition-delay: 150ms; }
+  .cloud { position: absolute; right: 7px; top: 10px; width: 16px; height: 7px; border-radius: 999px;
+           background: #fff; opacity: .9; transition: opacity 250ms ease, transform 450ms var(--ease-out); }
+  [data-theme="dark"] .cloud { opacity: 0; transform: translateX(8px); }
+
+  /* Circle reveal from the switch (View Transitions API) */
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+  /* ===== Page ===== */
+  .main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 40px; }
+  .profile { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; }
+  .profile .avatar { width: 56px; height: 56px; border-radius: 10px; }
+  .profile h1 { margin: 0; font-size: 24px; letter-spacing: -.02em; font-weight: 700; }
+  .profile p { margin: 2px 0 0; color: var(--muted); }
+  .btn { margin-left: auto; background: var(--ink); color: var(--on-ink); border: 0; border-radius: 7px;
+         padding: 8px 14px; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+         transition: transform 120ms var(--ease-out); }
+  .btn:active { transform: scale(.97); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border);
+           border-radius: 10px; background: var(--surface); margin-bottom: 28px; }
+  .stat { padding: 14px 16px; }
+  .stat + .stat { border-left: 1px solid var(--border); }
+  .stat b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .bar { height: 4px; background: var(--track); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--ink); }
+  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(3) { border-left: 0; } .stat:nth-child(n+3) { border-top: 1px solid var(--border); } }
+
+  /* ===== Carousel ===== */
+  .row-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .row-head h2 { font-size: 13px; font-weight: 600; margin: 0; color: var(--muted); margin-right: auto; }
+  .arrow { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-strong);
+           background: var(--surface); color: var(--text); display: grid; place-items: center; cursor: pointer;
+           transition: opacity 150ms ease, transform 120ms var(--ease-out); }
+  .arrow:active:not(:disabled) { transform: scale(.94); }
+  .arrow:disabled { opacity: .35; cursor: default; }
+  .arrow svg { width: 16px; height: 16px; }
+  .track { --gap: 12px; --per: 5; display: flex; gap: var(--gap); overflow-x: auto; overscroll-behavior-x: contain;
+           scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none;
+           padding: 4px 0 8px; margin-bottom: 28px; }
+  .track::-webkit-scrollbar { display: none; }
+  @media (max-width: 900px) { .track { --per: 3.3; } }
+  @media (max-width: 520px) { .track { --per: 2.2; } }
+  .cover { flex: 0 0 calc((100% - (var(--per) - 1) * var(--gap)) / var(--per)); scroll-snap-align: start;
+           color: inherit; text-decoration: none; }
+  .cover img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 6px; display: block;
+               background: var(--track); transition: transform 200ms var(--ease-out), box-shadow 200ms ease; }
+  @media (hover: hover) and (pointer: fine) {
+    .cover:hover img { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0,0,0,.18); }
+  }
+  .cover:focus-visible { outline: none; }
+  .cover:focus-visible img { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .cover .t { font-weight: 500; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cover .m { color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; }
+  .cover .m .perfect { color: var(--ultra); font-weight: 600; }
+  .cover .bar.gold i { background: var(--ultra); }
+
+  /* ===== List ===== */
+  .list { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .list-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .list-top b { font-size: 15px; }
+  .list-top .muted { color: var(--muted); }
+  .chips { margin-left: auto; display: flex; gap: 6px; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--muted); }
+  .chip.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint);
+       font-weight: 600; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  th.num, td.num { text-align: right; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .ach { display: flex; align-items: center; gap: 10px; }
+  .icon { width: 32px; height: 32px; border-radius: 6px; flex: none; display: grid; place-items: center;
+          font-weight: 700; font-size: 13px; background: var(--track); color: var(--muted); }
+  .locked .icon { opacity: .45; }
+  .locked .name { color: var(--muted); }
+  .name { font-weight: 500; }
+  .desc { color: var(--muted); font-size: 12px; }
+  .pct { font-weight: 500; }
+  .rar { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .r-common { color: var(--common); background: var(--common-bg); }
+  .r-uncommon { color: var(--uncommon); background: var(--uncommon-bg); }
+  .r-rare { color: var(--rare); background: var(--rare-bg); }
+  .r-ultra { color: var(--ultra); background: var(--ultra-bg); }
+  .status { color: var(--text); font-size: 12px; white-space: nowrap; }
+  .tip { font-size: 12px; font-weight: 600; color: var(--text); text-decoration: underline;
+         text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .track { scroll-behavior: auto; }
+    .knob, .core, .mask-dot, .rays, .star, .cloud { transition-duration: 150ms; transition-delay: 0ms; }
+    [data-theme="dark"] .rays { transform: none; }
+    .cover:hover img { transform: none; }
+  }
+</style>
+</head>
+<body>
+  <p class="note"><b>Try it:</b> click the sun/moon switch in the top right, and use the arrows (or swipe/scroll sideways) on the covers. Sample data.</p>
+
+  <nav class="nav surface-t">
+    <span class="brand">Completionist</span>
+    <a class="on" href="#">Dashboard</a><a href="#">Library</a>
+    <div class="right">
+      <button class="theme-switch" id="themeSwitch" role="switch" aria-checked="false" aria-label="Dark mode">
+        <span class="star"></span><span class="star"></span><span class="star"></span>
+        <span class="cloud"></span>
+        <span class="knob">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <mask id="moonMask">
+                <rect x="-6" y="-6" width="36" height="36" fill="white"/>
+                <circle class="mask-dot" cx="26" cy="2" r="7" fill="black"/>
+              </mask>
+            </defs>
+            <g class="rays">
+              <line x1="12" y1="1.5" x2="12" y2="3.5"/><line x1="12" y1="20.5" x2="12" y2="22.5"/>
+              <line x1="1.5" y1="12" x2="3.5" y2="12"/><line x1="20.5" y1="12" x2="22.5" y2="12"/>
+              <line x1="4.6" y1="4.6" x2="6" y2="6"/><line x1="18" y1="18" x2="19.4" y2="19.4"/>
+              <line x1="4.6" y1="19.4" x2="6" y2="18"/><line x1="18" y1="6" x2="19.4" y2="4.6"/>
+            </g>
+            <circle class="core" cx="12" cy="12" r="5" mask="url(#moonMask)"/>
+          </svg>
+        </span>
+      </button>
+      <div class="avatar"></div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="profile">
+      <div class="avatar"></div>
+      <div><h1>jdubungen</h1><p>Synced 4 min ago</p></div>
+      <button class="btn">Sync Steam</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>412</b><span>Games owned</span></div>
+      <div class="stat"><b>2,318 h</b><span>Played</span></div>
+      <div class="stat"><b>37%</b><span>Achievements unlocked</span><div class="bar"><i style="width:37%"></i></div></div>
+      <div class="stat"><b>6</b><span>Perfect games</span></div>
+    </div>
+
+    <div class="row-head">
+      <h2 id="inprog">In progress</h2>
+      <button class="arrow" id="prev" aria-label="Previous games"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg></button>
+      <button class="arrow" id="next" aria-label="Next games"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5"/></svg></button>
+    </div>
+    <div class="track" id="track" role="region" aria-labelledby="inprog" tabindex="0"></div>
+
+    <div class="list">
+      <div class="list-top"><b>Stardew Valley</b><span class="muted">37 of 49</span>
+        <div class="chips"><span class="chip on">Locked</span><span class="chip">All</span><span class="chip">Rarest first</span></div></div>
+      <table>
+        <thead><tr><th>Achievement</th><th class="num">Players</th><th>Rarity</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr class="locked"><td><div class="ach"><div class="icon">GC</div><div><div class="name">Gourmet Chef</div><div class="desc">Cook every recipe.</div></div></div></td><td class="num pct">2.9%</td><td><span class="rar r-ultra">Ultra rare</span></td><td><a class="tip" href="#">Get tip</a></td></tr>
+          <tr class="locked"><td><div class="ach"><div class="icon">MA</div><div><div class="name">Master Angler</div><div class="desc">Catch every fish.</div></div></div></td><td class="num pct">4.2%</td><td><span class="rar r-ultra">Ultra rare</span></td><td><a class="tip" href="#">Get tip</a></td></tr>
+          <tr class="locked"><td><div class="ach"><div class="icon">M</div><div><div class="name">Millionaire</div><div class="desc">Earn 1,000,000g.</div></div></div></td><td class="num pct">12.4%</td><td><span class="rar r-rare">Rare</span></td><td><a class="tip" href="#">Get tip</a></td></tr>
+          <tr><td><div class="ach"><div class="icon">FH</div><div><div class="name">Full House</div><div class="desc">Get married and have two kids.</div></div></div></td><td class="num pct">19.8%</td><td><span class="rar r-uncommon">Uncommon</span></td><td class="status">Mar 12, 2026</td></tr>
+          <tr><td><div class="ach"><div class="icon">C</div><div><div class="name">Cowpoke</div><div class="desc">Earn 50,000g.</div></div></div></td><td class="num pct">62.0%</td><td><span class="rar r-common">Common</span></td><td class="status">Feb 2, 2026</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+<script>
+  // --- Sample library ---
+  const games = [
+    [413150, 'Stardew Valley', 37, 49], [1145360, 'Hades', 49, 49], [367520, 'Hollow Knight', 41, 63],
+    [504230, 'Celeste', 22, 32], [646570, 'Slay the Spire', 18, 46], [105600, 'Terraria', 64, 115],
+    [1245620, 'Elden Ring', 30, 42], [1794680, 'Vampire Survivors', 201, 239], [2379780, 'Balatro', 26, 30],
+    [1868140, 'Dave the Diver', 25, 43],
+  ];
+  const track = document.getElementById('track');
+  track.innerHTML = games.map(([id, name, got, total]) => {
+    const pct = Math.round(got / total * 100), perfect = got === total;
+    return `<a class="cover" href="#">
+      <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_600x900.jpg" alt="" loading="lazy">
+      <div class="t">${name}</div>
+      <div class="m"><span>${got} / ${total}</span>${perfect ? '<span class="perfect">Perfect</span>' : `<span>${pct}%</span>`}</div>
+      <div class="bar${perfect ? ' gold' : ''}"><i style="width:${pct}%"></i></div></a>`;
+  }).join('');
+
+  // --- Carousel: native scroll-snap; arrows page by one viewport ---
+  const prev = document.getElementById('prev'), next = document.getElementById('next');
+  const syncArrows = () => {
+    prev.disabled = track.scrollLeft <= 1;
+    next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
+  };
+  prev.onclick = () => track.scrollBy({ left: -track.clientWidth });
+  next.onclick = () => track.scrollBy({ left: track.clientWidth });
+  track.addEventListener('scroll', syncArrows, { passive: true });
+  addEventListener('resize', syncArrows);
+  syncArrows();
+
+  // --- Day / night ---
+  const root = document.documentElement, sw = document.getElementById('themeSwitch');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const setTheme = (t) => { root.dataset.theme = t; sw.setAttribute('aria-checked', String(t === 'dark')); };
+  setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+  if (document.startViewTransition) root.classList.add('vt');
+  sw.addEventListener('click', () => {
+    const nextTheme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    if (!document.startViewTransition || reduce.matches) return setTheme(nextTheme);
+    const r = sw.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    const vt = document.startViewTransition(() => setTheme(nextTheme));
+    vt.ready.then(() => root.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+      { duration: 650, easing: 'cubic-bezier(0.77, 0, 0.175, 1)', pseudoElement: '::view-transition-new(root)' }
+    ));
+  });
+</script>
+</body>
+</html>

@@ -11,10 +11,18 @@ auth_bp = Blueprint('auth', __name__)
 STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login'
 
 
+def _safe_return_url(url):
+    """Only allow redirects back to the configured frontend (no open redirect)."""
+    base = current_app.config['FRONTEND_URL'].rstrip('/')
+    if url and (url == base or url.startswith(base + '/')):
+        return url
+    return base + '/dashboard'
+
+
 @auth_bp.route('/login', methods=['GET'])
 def login():
     """Redirect user to Steam OpenID login page."""
-    return_url = request.args.get('return_url', 'http://localhost:3000')
+    return_url = _safe_return_url(request.args.get('return_url'))
 
     backend_url = current_app.config.get('BACKEND_URL', 'http://localhost:5000')
     callback_url = backend_url.rstrip('/') + '/api/auth/callback'
@@ -39,7 +47,7 @@ def login():
 @auth_bp.route('/callback', methods=['GET'])
 def callback():
     """Handle Steam OpenID callback, validate, create/update player, return JWT."""
-    return_url = request.args.get('return_url', 'http://localhost:3000')
+    return_url = _safe_return_url(request.args.get('return_url'))
 
     # Validate the OpenID response with Steam
     validation_params = dict(request.args)

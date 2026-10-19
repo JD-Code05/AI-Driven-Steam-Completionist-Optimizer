@@ -47,7 +47,7 @@ export const gamesAPI = {
 
 // Player Games
 export const playerGamesAPI = {
-  list: (playerId, tracked) => api.get('/player-games', { params: { player_id: playerId, tracked } }),
+  list: (tracked) => api.get('/player-games', { params: { tracked } }),
   update: (id, data) => api.put(`/player-games/${id}`, data),
 }
 
@@ -58,7 +58,7 @@ export const achievementsAPI = {
 
 // Player Achievements
 export const playerAchievementsAPI = {
-  list: (playerId, gameId) => api.get('/player-achievements', { params: { player_id: playerId, game_id: gameId } }),
+  list: (gameId) => api.get('/player-achievements', { params: { game_id: gameId } }),
 }
 
 // Bookmarks
@@ -72,12 +72,6 @@ export const dataSourcesAPI = {
 // AI
 export const aiAPI = {
   getAchievementTip: (achievementId) => api.post(`/ai/achievement-tip/${achievementId}`),
-}
-
-// Optimization Routes
-export const optimizationAPI = {
-  list: (playerId, gameId) => api.get('/optimization-routes', { params: { player_id: playerId, game_id: gameId } }),
-  get: (id) => api.get(`/optimization-routes/${id}`),
 }
 
 export default api

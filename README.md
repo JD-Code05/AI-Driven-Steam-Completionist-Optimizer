@@ -319,7 +319,7 @@ steam-optimizer/
 │       ├── config.py               # Environment-based configuration
 │       ├── extensions.py           # SQLAlchemy & Migrate instances
 │       ├── models/                 # 7 SQLAlchemy ORM models
-│       ├── routes/                 # 10 Flask Blueprints (CRUD + auth + sync + AI)
+│       ├── routes/                 # 9 Flask Blueprints (data + auth + sync + AI)
 │       ├── services/               # Business logic (Steam API, web scraper, SteamGridDB)
 │       └── utils/                  # JWT auth utilities
 │
@@ -360,7 +360,7 @@ steam-optimizer/
 
 ## API Reference
 
-The backend exposes **37 endpoints** across 10 blueprints + 1 health check. All endpoints return JSON.
+The backend exposes **19 endpoints** across 9 blueprints + 1 health check. All endpoints return JSON.
 
 ### Authentication
 
@@ -388,30 +388,29 @@ The backend exposes **37 endpoints** across 10 blueprints + 1 health check. All 
 
 | Method | Endpoint                 | Auth | Description                             |
 | ------ | ------------------------ | ---- | --------------------------------------- |
-| GET    | `/api/data-sources`      | No   | List bookmarks for a game (`?game_id=`) |
-| POST   | `/api/data-sources`      | No   | Add a bookmark                          |
-| PUT    | `/api/data-sources/<id>` | No   | Update a bookmark                       |
-| DELETE | `/api/data-sources/<id>` | No   | Delete a bookmark                       |
+| GET    | `/api/data-sources`      | Yes  | List bookmarks for a game (`?game_id=`) |
+| POST   | `/api/data-sources`      | Yes  | Add a bookmark                          |
+| PUT    | `/api/data-sources/<id>` | Yes  | Update a bookmark                       |
+| DELETE | `/api/data-sources/<id>` | Yes  | Delete a bookmark                       |
 
-### CRUD Endpoints
+### Data Endpoints
 
-All CRUD blueprints follow the same pattern:
+All require login (Bearer token). Player-scoped routes return only the logged-in player's data.
 
-| Method | Endpoint               | Description                       |
-| ------ | ---------------------- | --------------------------------- |
-| GET    | `/api/<resource>`      | List all (supports query filters) |
-| GET    | `/api/<resource>/<id>` | Get one by ID                     |
-| POST   | `/api/<resource>`      | Create new                        |
-| PUT    | `/api/<resource>/<id>` | Update existing                   |
-| DELETE | `/api/<resource>/<id>` | Delete                            |
-
-**Resources:** `players`, `games`, `player-games`, `achievements`, `player-achievements`
+| Method | Endpoint                   | Description                                         |
+| ------ | -------------------------- | --------------------------------------------------- |
+| GET    | `/api/games`               | List games                                          |
+| GET    | `/api/games/<id>`          | Get one game                                        |
+| GET    | `/api/achievements`        | List a game's achievements (`?game_id=`)            |
+| GET    | `/api/player-games`        | Your games (`?tracked=true`)                        |
+| PUT    | `/api/player-games/<id>`   | Toggle `is_tracked` on one of your games            |
+| GET    | `/api/player-achievements` | Your unlock status (`?game_id=`, `&unlocked=true`)  |
 
 ### SteamGridDB
 
 | Method | Endpoint                         | Auth | Description                         |
 | ------ | -------------------------------- | ---- | ----------------------------------- |
-| GET    | `/api/steamgriddb/grid/<app_id>` | No   | Get high-res artwork URL for a game |
+| GET    | `/api/steamgriddb/grid/<app_id>` | Yes  | Get high-res artwork URL for a game |
 
 ### Health Check
 

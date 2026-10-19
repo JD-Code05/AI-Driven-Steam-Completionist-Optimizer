@@ -20,7 +20,7 @@
 - Backend test command (mounts local code, no DB needed): `docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps backend python -m unittest discover -s tests -v`
 - Frontend test command: `node --test frontend/src/utils/`
 - Frontend build check: `docker compose build frontend` (fails on any import/syntax error).
-- Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- No `Co-Authored-By` trailer in commit messages (owner instruction, 2026-10-19).
 
 ## Review Focus
 

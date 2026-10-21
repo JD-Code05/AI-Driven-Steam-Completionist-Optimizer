@@ -28,10 +28,18 @@ test('inProgress: tracked games win when any exist', () => {
   assert.deepEqual(inProgress([A, B, C, t]), [t])
 })
 
-test('inProgress: otherwise unfinished synced games, highest percent first', () => {
+test('inProgress: otherwise every unfinished game, synced by percent, then unsynced by playtime', () => {
   const D = pg(5, 10, 1)
   const E = pg(6, 10, 8)
-  assert.deepEqual(inProgress([A, D, B, C, E]), [E, B, D])
+  const F = pg(7, 0, 0, { playtime_hours: 40 })
+  assert.deepEqual(inProgress([A, D, B, C, E, F]), [E, B, D, F, C])
+})
+
+test('inProgress: a freshly synced library with no achievements loaded still shows games, capped at 12', () => {
+  const library = Array.from({ length: 20 }, (_, i) => pg(100 + i, 0, 0, { playtime_hours: i }))
+  const shown = inProgress(library)
+  assert.equal(shown.length, 12)
+  assert.equal(shown[0].playtime_hours, 19)
 })
 
 test('rarityBreakdown: empty list still has every tier', () => {

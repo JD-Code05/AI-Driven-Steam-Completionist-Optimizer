@@ -18,9 +18,12 @@ export function dashboardStats(playerGames) {
 export function inProgress(playerGames) {
   const tracked = playerGames.filter((pg) => pg.is_tracked)
   if (tracked.length) return tracked
+  const synced = (pg) => total(pg) > 0
+  // Unsynced games are included so a fresh library isn't empty; pct is NaN for them, so playtime breaks the tie.
   return playerGames
-    .filter((pg) => total(pg) > 0 && pg.unlocked_count !== total(pg))
-    .sort((a, b) => pct(b) - pct(a))
+    .filter((pg) => !synced(pg) || pg.unlocked_count !== total(pg))
+    .sort((a, b) => synced(b) - synced(a) || pct(b) - pct(a) || (b.playtime_hours || 0) - (a.playtime_hours || 0))
+    .slice(0, 12)
 }
 
 export function rarityBreakdown(achievements, unlockedIds) {

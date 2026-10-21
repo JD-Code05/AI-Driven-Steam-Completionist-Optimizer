@@ -46,7 +46,7 @@ export default function GameCard({ game, unlockedCount, totalAchievements }) {
   const perfect = total > 0 && unlocked >= total
 
   return (
-    <Link to={`/games/${game.id}`} className="group block text-left focus-visible:outline-none">
+    <Link to={`/games/${game.id}`} className="group block min-w-0 text-left focus-visible:outline-none">
       <div className="aspect-[2/3] overflow-hidden rounded-md bg-track transition-[transform,box-shadow] duration-200 ease-[var(--ease-out)] group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ink motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:-translate-y-[3px] motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:shadow-[0_8px_18px_rgba(0,0,0,.18)]">
         {displayUrl ? (
           <img

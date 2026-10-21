@@ -47,7 +47,7 @@ export default function GameCarousel({ items, children }) {
         className="-mx-1 flex snap-x snap-mandatory scroll-px-1 gap-3 overflow-x-auto overscroll-x-contain scroll-smooth px-1 pt-1 pb-2 [--per:5] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-[900px]:[--per:3.3] max-[520px]:[--per:2.2] motion-reduce:scroll-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
         {items.map((pg) => (
-          <div key={pg.id} className="flex-[0_0_calc((100%-(var(--per)-1)*12px)/var(--per))] snap-start">
+          <div key={pg.id} className="flex-[0_0_calc((100%-(var(--per)-1)*12px)/var(--per))] min-w-0 snap-start">
             <GameCard game={pg.game} unlockedCount={pg.unlocked_count} totalAchievements={pg.game.total_achievements} />
           </div>
         ))}

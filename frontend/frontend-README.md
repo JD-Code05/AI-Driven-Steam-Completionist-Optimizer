@@ -1,6 +1,6 @@
 # Frontend — React SPA
 
-The frontend is a **React 19** single-page application built with **Vite 6** and **Tailwind CSS v4**. It provides a responsive, Steam-themed dashboard for managing games, viewing achievement progress, and getting AI-powered per-achievement guidance.
+The frontend is a **React 19** single-page application built with **Vite 6** and **Tailwind CSS v4**. It provides a responsive dashboard (light and dark themes) for managing games, viewing achievement progress, and getting AI-powered per-achievement guides.
 
 ---
 
@@ -57,7 +57,7 @@ frontend/
 └── src/
     ├── main.jsx             # App entry: StrictMode + BrowserRouter + AuthProvider
     ├── App.jsx              # Route definitions (4 routes + catch-all)
-    ├── index.css            # Tailwind v4 @theme block (custom colors, fonts)
+    ├── index.css            # Tailwind v4 theme tokens (light/dark), theme switch + panel CSS
     │
     ├── context/
     │   └── AuthContext.jsx  # Authentication state: JWT handling, player data, login/logout
@@ -66,25 +66,31 @@ frontend/
     │   └── api.js           # Axios instance + API wrapper functions for all endpoints
     │
     ├── components/          # Reusable UI building blocks
-    │   ├── Navbar.jsx               # Top navigation bar with mobile hamburger menu
-    │   ├── Layout.jsx               # Page layout wrapper (Navbar + content area)
+    │   ├── Navbar.jsx               # Top bar: app name ("AO" on phones), Dashboard link, ThemeSwitch, log out
+    │   ├── Layout.jsx               # Page wrapper (Navbar + centered content area)
     │   ├── ProtectedRoute.jsx       # Auth guard — redirects to /login if not authenticated
-    │   ├── GameCard.jsx             # Game card with icon, name, playtime, completion progress
-    │   ├── AchievementCard.jsx      # Achievement card with icon, name, rarity badge, unlock status
-    │   ├── AchievementDetailModal.jsx  # Centered modal for per-achievement AI tip generation
-    │   ├── AchievementTipRenderer.jsx  # Structured renderer for parsed 4-section AI tips
-    │   ├── RarityBadge.jsx          # Colored badge showing rarity tier
-    │   ├── ProgressBar.jsx          # Horizontal progress bar with percentage label
-    │   └── ProgressRing.jsx         # SVG donut chart showing completion percentage
+    │   ├── ThemeSwitch.jsx          # Sun/moon switch that toggles light and dark
+    │   ├── GameCard.jsx             # Cover art, name, X / Y unlocked and a progress bar
+    │   ├── GameCarousel.jsx         # "In progress" row of GameCards with previous/next arrows
+    │   ├── AchievementRow.jsx       # One achievement: icon, name, description, % of players, rarity, status
+    │   ├── AchievementPanel.jsx     # Side drawer (bottom sheet on phones) with details and the AI guide
+    │   ├── AchievementTipRenderer.jsx  # Renders the parsed 4-section AI guide inside the panel
+    │   ├── GuidesCard.jsx           # Guide links the player keeps for a game (add/remove)
+    │   ├── RarityBadge.jsx          # Rarity pill (ultra rare / rare / uncommon / common)
+    │   └── ProgressBar.jsx          # Thin progress bar, optionally tinted by rarity tone
     │
     ├── pages/               # Full-page components (one per route)
-    │   ├── LoginPage.jsx        # Hero section + Steam sign-in button + feature cards
-    │   ├── DashboardPage.jsx    # Profile, stats, Completionist Showcase, tracked games, recent achievements
-    │   ├── GameDetailPage.jsx   # Achievement list with filters, rarity breakdown, bookmarks, AI tip modal
-    │   └── OptimizationPage.jsx # AI-generated Markdown guide viewer
+    │   ├── LoginPage.jsx        # Pitch, Steam sign-in button, looping cover wall
+    │   ├── DashboardPage.jsx    # Profile + sync, stat strip, game carousel, recent unlocks
+    │   ├── GameDetailPage.jsx   # Hero art, progress by rarity, achievement list, guides card
+    │   └── OptimizationPage.jsx # AI-generated Markdown route viewer
     │
     └── utils/
-        └── achievementTipParser.js  # Parses raw AI Markdown into structured 4-section object
+        ├── achievementTipParser.js  # Parses raw AI Markdown into a structured 4-section object
+        ├── format.js                # timeAgo / formatDate (reads backend UTC timestamps correctly)
+        ├── stats.js                 # Dashboard stats, in-progress games, rarity breakdown
+        ├── sourceType.js            # Guesses a guide link's type (youtube / wiki / article)
+        └── theme.js                 # Theme choice: stored value, system fallback, switch animation
 ```
 
 ---
@@ -103,38 +109,30 @@ Defined in `App.jsx`:
 
 ### LoginPage
 
-- Hero section with the app title and tagline
-- Large "Sign in with Steam" button that redirects to `/api/auth/login`
-- Three feature cards explaining the app's capabilities (Sync, Track, Optimize)
+- Pitch and a "Sign in with Steam" button that redirects to `/api/auth/login`
+- Three short steps (sync, see what's left, get a route)
+- A slowly drifting wall of cover art (still when reduced motion is on)
+- Shows a short message when the sign-in callback returns `?error=`
 
 ### DashboardPage
 
-Uses a deliberate **Z-pattern layout** for visual flow:
-
-1. **Top row:** Player profile card (avatar, name, Steam ID) + overall completion ring
-2. **Completionist Showcase:** Horizontal card below the profile row showing 100%-completed games (hidden if none exist)
-3. **Tracked games grid:** `GameCard` components for games the player is tracking
-4. **All games section:** Full library grid with toggle to show/hide
-5. **Bottom-left:** Recent unlocked achievements (across all tracked games)
-6. **Bottom-right:** AI optimization call-to-action card (hidden once at least one game is tracked)
-
-Includes a **"Sync Games"** button to import the player's Steam library.
+1. **Header:** avatar, player name, last-synced time and a "Sync Steam" button
+2. **Stat strip:** games owned, hours played, achievements unlocked, perfect games
+3. **In progress:** `GameCarousel` of tracked games (or, with none tracked, the closest-to-done games), plus an "All games" button that opens the full library in a dialog
+4. **Recently unlocked:** the latest unlocks across tracked games as `AchievementRow`s
 
 ### GameDetailPage
 
-- **Header:** Game banner, name, app ID, playtime, track/untrack button
-- **Main area:** Achievement list with filter tabs (All / Locked / Unlocked); clicking an achievement opens `AchievementDetailModal`
-- **Sidebar:**
-  - Completion ring for this game
-  - Rarity breakdown (color-coded counts per tier)
-  - Bookmarks panel (add/delete guide URLs per game)
-- **Sync button:** Fetches latest achievements from Steam
-- **AI Tip flow:** Clicking any achievement row opens a centered modal with a **"Get AI Tip"** button; the generated tip is cached in `tipCache` state (persisted to `localStorage`) so it survives modal close/reopen without re-fetching
+- **Header:** hero art, game name, hours played, last-synced time, Track and Sync buttons
+- **Progress:** overall unlocked count plus one cell per rarity tier
+- **Achievements:** filter (all / locked / unlocked), search, sort (rarest, most common, recently unlocked); choosing a row opens `AchievementPanel`
+- **Guides:** `GuidesCard` in the side column
+- **AI guide flow:** the panel's "Write a guide" button asks the backend for a guide; it is stored in `localStorage` per player and achievement, so it survives closing and reloading
 
 ### OptimizationPage
 
 - Back navigation link to the game detail page
-- Purple-themed header with model name
+- Header with the model name and when the route was generated
 - **Markdown rendering** of the AI guide using `react-markdown` with prose styling
 - Error display for API failures
 
@@ -144,91 +142,51 @@ Includes a **"Sync Games"** button to import the player's Steam library.
 
 ### `Navbar`
 
-- Fixed top navigation with the app logo/title
-- Links to Dashboard
-- Player avatar and name (when authenticated)
-- Logout button
-- **Mobile responsive:** Hamburger menu toggle for small screens
+Top bar with the app name ("Achievement Optimizer", shortened to "AO" on phones), a Dashboard link, the `ThemeSwitch`, the player's avatar and a log-out button.
 
 ### `Layout`
 
-Simple wrapper that renders `<Navbar />` above a `<main>` content area with consistent padding and max-width.
+Wraps a page: `Navbar` above a centered `<main>` (max width 1160px).
 
 ### `ProtectedRoute`
 
-Wraps route components. If the user is not authenticated (no player in AuthContext), redirects to `/login`. Shows a loading spinner while the auth state is being resolved.
+Wraps route components. With no signed-in player it redirects to `/login` (carrying any `?error=`); while the auth state loads it shows a spinner.
+
+### `ThemeSwitch`
+
+Sun/moon switch (`role="switch"`). It stores the choice in `localStorage` and sets `data-theme` on `<html>`; the change animates as a circle reveal where the browser supports it.
 
 ### `GameCard`
 
-Displays a game as a card with:
+Cover art (SteamGridDB, then Steam CDN, then an initial), game name, `X / Y` unlocked, percentage or "Perfect", and a `ProgressBar`. Links to the game page. Long names truncate.
 
-- Game icon image
-- Game name
-- Playtime in hours
-- Achievement completion count (X/Y)
-- ProgressBar showing completion percentage
-- "Tracked" badge if the game is being tracked
-- Links to the game detail page
+### `GameCarousel`
 
-### `AchievementDetailModal`
+Scroll-snapping row of `GameCard`s titled "In progress", with previous/next buttons that disable at either end. It takes optional children for the heading row (the "All games" button).
 
-A fixed, centered modal opened when a user clicks any achievement row. Features:
+### `AchievementRow`
 
-- Achievement icon, name, description, rarity badge, and unlock status
-- **"Get AI Tip" button** — calls `POST /api/ai/achievement-tip/<id>` and renders the result via `AchievementTipRenderer`
-- Tip is passed in via `initialTip` prop (from parent's `tipCache`) so cached tips display immediately without re-fetching
-- `onTipGenerated` callback saves the tip back to the parent `tipCache` and to `localStorage`
-- **Find More Resources** section with auto-generated links to YouTube and Steam Community Guides
-- Closes on Escape key or backdrop click
+Icon (greyed when locked), name, description, share of players who have it, `RarityBadge` and unlock date. Renders as a button when `onSelect` is passed. On narrow screens the rarity and status columns hide, and a screen-reader-only status stays.
+
+### `AchievementPanel`
+
+Native `<dialog>`: a drawer from the right on desktop, a bottom sheet under 860px. Shows the achievement's details, how rare it is, and the AI guide ("Write a guide", loading, error and ready states; "Rewrite" once a guide exists), plus links to Steam guides and YouTube. Escape and a backdrop click close it.
 
 ### `AchievementTipRenderer`
 
-Renders a parsed tip object (from `achievementTipParser`) as structured UI sections:
+Renders a parsed guide (from `achievementTipParser`) as four sections: estimated time, how to unlock, warnings and pro tips. Step text goes through `ReactMarkdown`.
 
-- **Estimated Time** — purple card with clock icon
-- **How to Unlock** — numbered steps
-- **Important Warnings** — amber icon, numbered warnings
-- **Pro Tips** — green icon, numbered tips
+### `GuidesCard`
 
-Each step/tip text is rendered through `ReactMarkdown` for inline formatting support.
-
-### `AchievementCard`
-
-Displays a single achievement with:
-
-- Achievement icon (colored if unlocked, grayed if locked)
-- Display name and description
-- RarityBadge component
-- Unlock timestamp (if unlocked)
-- Visual styling difference for locked vs unlocked state
+Lists the guide links the player saved for a game, with an add-a-link form (type inferred by `inferSourceType`) and a remove button per link.
 
 ### `RarityBadge`
 
-A small colored pill/badge showing the rarity tier:
-
-| Tier       | Color  |
-| ---------- | ------ |
-| Ultra-Rare | Purple |
-| Rare       | Amber  |
-| Uncommon   | Blue   |
-| Common     | Gray   |
+Pill showing the tier, colored from the rarity tokens (`ultra`, `rare`, `uncommon`, `common`, each with a `-bg` fill).
 
 ### `ProgressBar`
 
-Horizontal bar with:
-
-- Filled portion proportional to `value/max`
-- Percentage label (e.g., "73%")
-- Steam-accent color gradient
-
-### `ProgressRing`
-
-SVG-based donut/ring chart with:
-
-- Configurable `size` (diameter in pixels)
-- Animated stroke that fills proportionally to `value/max`
-- Center text showing the percentage
-- Gradient stroke color
+Thin bar filled to `value / max` (clamped 0-100%). `tone` is `ink` (default) or a rarity tier.
 
 ---
 
@@ -276,12 +234,11 @@ Organized by resource — each returns an Axios promise:
 | `authAPI`               | `getLoginUrl()`, `me()`, `logout()`                              | Authentication endpoints |
 | `syncAPI`               | `syncGames()`, `syncAchievements(appId)`                         | Steam data sync          |
 | `gamesAPI`              | `list()`, `get(id)`                                              | Game data                |
-| `playerGamesAPI`        | `list(playerId, tracked)`, `update(id, data)`                    | Player-game associations |
+| `playerGamesAPI`        | `list(tracked)`, `update(id, data)`                    | Player-game associations |
 | `achievementsAPI`       | `list(gameId)`                                                   | Achievement definitions  |
-| `playerAchievementsAPI` | `list(playerId, gameId)`                                         | Player unlock status     |
+| `playerAchievementsAPI` | `list(gameId)`                                                 | Player unlock status     |
 | `dataSourcesAPI`        | `list(gameId)`, `create(data)`, `update(id, data)`, `delete(id)` | Bookmark management      |
-| `aiAPI`                 | `getAchievementTip(achievementId)`                               | Per-achievement AI tip   |
-| `optimizationAPI`       | `list(playerId, gameId)`, `get(id)`                              | Optimization route data  |
+| `aiAPI`                 | `getAchievementTip(achievementId)`                               | Per-achievement AI guide |
 
 ---
 
@@ -291,26 +248,29 @@ Organized by resource — each returns an Axios promise:
 
 This project uses **Tailwind v4** which defines themes in CSS rather than a `tailwind.config.js` file. All custom design tokens are in `src/index.css` using the `@theme` block.
 
-### Custom Colors
+### Theme tokens
 
-| Token                       | Usage                            |
-| --------------------------- | -------------------------------- |
-| `--color-steam-dark`        | Main background color            |
-| `--color-steam-blue`        | Primary accent blue              |
-| `--color-steam-accent`      | Light accent (links, highlights) |
-| `--color-surface`           | Card/panel backgrounds           |
-| `--color-surface-light`     | Elevated surface backgrounds     |
-| `--color-rarity-common`     | Common achievement badge         |
-| `--color-rarity-uncommon`   | Uncommon achievement badge       |
-| `--color-rarity-rare`       | Rare achievement badge           |
-| `--color-rarity-ultra-rare` | Ultra-rare achievement badge     |
+Colors are CSS variables set per theme in `index.css` (`[data-theme="light"]` and `[data-theme="dark"]`) and exposed to Tailwind through `@theme inline`, so classes like `bg-surface` or `text-muted` follow the active theme. Use these tokens only; no raw colors.
+
+| Token | Used for |
+| ----- | -------- |
+| `bg`, `surface`, `hover` | Page background, cards and panels, hover/selected fill |
+| `border`, `border-strong` | Hairlines; control outlines |
+| `text`, `muted`, `faint` | Body text, secondary text, labels and placeholders |
+| `ink`, `on-ink` | Primary buttons, selected states and focus rings, and the text on them |
+| `track` | Progress-bar tracks, image placeholders, loading blocks |
+| `common`, `uncommon`, `rare`, `ultra` (+ `-bg`) | Rarity text and badge fill |
+| `warn`, `warn-bg` | Notices and errors |
+| `scrim` | Dialog backdrop |
+
+`index.html` sets `data-theme` before React loads (stored choice, else the system setting), so there is no flash. `utils/theme.js` holds the same logic for the switch.
 
 ### Design Philosophy
 
-- **Dark theme** matching Steam's UI aesthetic
-- **Responsive** layout using Tailwind breakpoints (mobile-first)
-- **Accessible** focus states and color contrast
-- **Consistent spacing** using Tailwind's spacing scale
+- **Light and dark themes**, switchable from the navbar
+- **Responsive**, checked down to 375px wide with no horizontal scrolling
+- **Reduced motion:** transitions and animations are shortened or removed under `prefers-reduced-motion`
+- **Keyboard friendly:** visible focus rings (`ink`) and native `<dialog>` for panels
 
 ---
 

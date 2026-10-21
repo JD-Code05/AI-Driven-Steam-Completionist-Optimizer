@@ -23,7 +23,7 @@ export default function AchievementRow({ achievement, unlocked, unlockTime, game
         </span>
         <span className="min-w-0">
           {gameName && <span className="block truncate text-[11px] text-faint">{gameName}</span>}
-          <span className={`block truncate font-medium ${unlocked ? '' : 'text-muted'}`}>
+          <span className={`relative block truncate font-medium ${unlocked ? '' : 'text-muted'}`}>
             {achievement.display_name}
             <span className="sr-only">{`, ${status}`}</span>
           </span>

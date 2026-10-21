@@ -142,6 +142,10 @@ def sync_achievements(app_id):
     # Update game's total achievements count
     game.total_achievements = len(schema)
 
+    pg = PlayerGame.query.filter_by(player_id=request.player_id, game_id=game.id).first()
+    if pg:
+        pg.last_synced = datetime.now(timezone.utc)
+
     db.session.commit()
     return jsonify({
         'message': f'Synced {synced_count} achievements for {game.name}',

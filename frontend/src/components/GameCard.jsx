@@ -1,86 +1,56 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import ProgressBar from './ProgressBar'
 import api from '../services/api'
 
-// Module-level cache so each app_id is only fetched once per session
-const imageCache = new Map()
+// SteamGridDB lookups, cached per app_id for the session
+const gridCache = new Map()
+const steamCover = (appId) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`
 
-export default function GameCard({ game, playerGame, unlockedCount, totalAchievements }) {
+export default function GameCard({ game, unlockedCount, totalAchievements }) {
   const total = totalAchievements ?? 0
   const unlocked = unlockedCount ?? 0
 
-  // Steam CDN fallback chain
-  const fallbackUrl = game.img_capsule_url || game.img_logo_url || game.img_icon_url
+  // Official Steam cover first (community grid art can be low quality); SteamGridDB only when Steam has none
+  const [src, setSrc] = useState(game.app_id ? steamCover(game.app_id) : null)
 
-  const [imageUrl, setImageUrl] = useState(() => {
-    // Use cached value immediately if available (avoids flicker on re-renders)
-    if (game.app_id && imageCache.has(game.app_id)) {
-      return imageCache.get(game.app_id) || fallbackUrl
-    }
-    return fallbackUrl
-  })
-  const [imgError, setImgError] = useState(false)
-
-  useEffect(() => {
-    if (!game.app_id) return
-    // Already resolved for this app_id — skip fetch
-    if (imageCache.has(game.app_id)) return
-
-    let cancelled = false
+  function loadGridArt() {
+    if (gridCache.has(game.app_id)) return setSrc(gridCache.get(game.app_id))
+    setSrc(null) // placeholder while the (slow) lookup runs, instead of a broken image
     api.get(`/steamgriddb/grid/${game.app_id}`)
-      .then(({ data }) => {
-        if (cancelled) return
-        const url = data?.url || null
-        imageCache.set(game.app_id, url)
-        if (url) setImageUrl(url)
-      })
-      .catch(() => {
-        if (!cancelled) imageCache.set(game.app_id, null)
-      })
+      .then(({ data }) => { gridCache.set(game.app_id, data?.url || null); setSrc(data?.url || null) })
+      .catch(() => { gridCache.set(game.app_id, null); setSrc(null) })
+  }
 
-    return () => { cancelled = true }
-  }, [game.app_id])
-
-  const displayUrl = imgError ? fallbackUrl : imageUrl
+  const perfect = total > 0 && unlocked >= total
 
   return (
-    <Link
-      to={`/games/${game.id}`}
-      className="group block bg-surface-light rounded-xl overflow-hidden border border-gray-800 hover:border-steam-blue/50 transition-all duration-200 hover:shadow-lg hover:shadow-steam-blue/10"
-    >
-      {displayUrl ? (
-        <div className="aspect-[2/3] overflow-hidden bg-gray-900">
+    <Link to={`/games/${game.id}`} className="group block min-w-0 text-left focus-visible:outline-none">
+      <div className="aspect-[2/3] overflow-hidden rounded-md bg-track transition-[transform,box-shadow] duration-200 ease-[var(--ease-out)] group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ink motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:-translate-y-[3px] motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:shadow-[0_8px_18px_rgba(0,0,0,.18)]">
+        {src ? (
           <img
-            src={displayUrl}
-            alt={game.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={() => {
-              if (!imgError) {
-                setImgError(true)
-                setImageUrl(fallbackUrl)
-              }
-            }}
+            src={src}
+            alt=""
+            className="size-full object-cover"
+            // Steam cover missing -> SteamGridDB; that failing too -> initial placeholder
+            onError={() => (src === steamCover(game.app_id) ? loadGridArt() : setSrc(null))}
           />
-        </div>
-      ) : (
-        <div className="aspect-[2/3] bg-gradient-to-br from-steam-dark to-steam-light flex items-center justify-center">
-          <span className="text-4xl font-bold text-gray-500">{game.name?.[0] || '?'}</span>
-        </div>
-      )}
-      <div className="p-4 text-left">
-        <h3 className="font-semibold text-sm text-white truncate mb-2">{game.name}</h3>
-        {total > 0 ? (
-          <ProgressBar value={unlocked} max={total} size="sm" />
         ) : (
-          <p className="text-xs text-gray-500">No achievements</p>
-        )}
-        {playerGame?.playtime_hours > 0 && (
-          <p className="text-xs text-gray-500 mt-2">
-            {playerGame.playtime_hours}h played
-          </p>
+          <div className="grid size-full place-items-center text-4xl font-bold text-faint">{game.name?.[0] || '?'}</div>
         )}
       </div>
+      <h3 className="mt-1.5 truncate font-medium">{game.name}</h3>
+      {total > 0 ? (
+        <>
+          <div className="flex justify-between text-xs text-muted">
+            <span>{unlocked} / {total}</span>
+            {perfect ? <span className="font-semibold text-ultra">Perfect</span> : <span>{Math.floor((unlocked / total) * 100)}%</span>}
+          </div>
+          <div className="mt-2"><ProgressBar value={unlocked} max={total} tone={perfect ? 'ultra' : 'ink'} /></div>
+        </>
+      ) : (
+        <p className="text-xs text-muted">Not synced yet</p>
+      )}
     </Link>
   )
 }

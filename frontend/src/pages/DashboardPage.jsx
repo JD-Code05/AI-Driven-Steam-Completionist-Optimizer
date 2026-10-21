@@ -1,20 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { syncAPI, playerGamesAPI, playerAchievementsAPI } from '../services/api'
 import Layout from '../components/Layout'
 import GameCard from '../components/GameCard'
-import ProgressRing from '../components/ProgressRing'
-import AchievementCard from '../components/AchievementCard'
-import { HiArrowPath, HiTrophy, HiCpuChip, HiSparkles } from 'react-icons/hi2'
-import { Link } from 'react-router-dom'
+import GameCarousel from '../components/GameCarousel'
+import AchievementRow from '../components/AchievementRow'
+import ProgressBar from '../components/ProgressBar'
+import { dashboardStats, inProgress, perfectGames } from '../utils/stats'
+import { timeAgo } from '../utils/format'
+
+const PRIVATE_MESSAGE = 'No games found or profile is private'
+const focusCls = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+const secondaryBtn = `cursor-pointer rounded-lg border border-border-strong bg-surface px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-hover ${focusCls}`
 
 export default function DashboardPage() {
   const { player } = useAuth()
   const [playerGames, setPlayerGames] = useState([])
-  const [recentAchievements, setRecentAchievements] = useState([])
+  const [recent, setRecent] = useState([])
   const [syncing, setSyncing] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [showAllGames, setShowAllGames] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (player) loadData()
@@ -22,51 +29,30 @@ export default function DashboardPage() {
 
   async function loadData() {
     setLoading(true)
+    setLoadFailed(false)
     try {
       const { data: pgData } = await playerGamesAPI.list()
+      setPlayerGames(pgData)
 
-      // Fetch achievements for all games concurrently
-      const playerAchievementsPromises = pgData.map(async (pg) => {
-        if (pg.game?.id) {
-          const { data: paData } = await playerAchievementsAPI.list(pg.game.id)
-          return { gameId: pg.game.id, unlockedCount: paData.filter((pa) => pa.unlocked).length }
-        }
-        return { gameId: pg.game?.id, unlockedCount: 0 }
-      })
-
-      const allPlayerAchievements = await Promise.all(playerAchievementsPromises)
-      const achievementMap = new Map(allPlayerAchievements.map(item => [item.gameId, item.unlockedCount]));
-
-      const playerGamesWithAchievements = pgData.map(pg => ({
-        ...pg,
-        unlockedCount: achievementMap.get(pg.game?.id) || 0,
-        totalAchievements: pg.game?.total_achievements || 0,
-      }))
-
-      setPlayerGames(playerGamesWithAchievements)
-
-      const tracked = pgData.filter((pg) => pg.is_tracked)
-      const perGameResults = await Promise.all(
-        tracked.map(async (pg) => {
-          if (!pg.game?.id) return []
+      // Top 3 unlocks per tracked game so one busy game can't dominate, then the overall top 8.
+      const perGame = await Promise.all(
+        pgData.filter((pg) => pg.is_tracked && pg.game?.id).map(async (pg) => {
           try {
-            const { data: paData } = await playerAchievementsAPI.list(pg.game.id)
-            return paData
+            const { data } = await playerAchievementsAPI.list(pg.game.id)
+            return data
               .filter((pa) => pa.unlocked && pa.unlock_time)
               .sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time))
-              .slice(0, 3) // cap per game so one active game can't dominate
-              .map((pa) => ({ ...pa, game_name: pg.game?.name }))
+              .slice(0, 3)
+              .map((pa) => ({ ...pa, game_name: pg.game.name }))
           } catch {
             return []
           }
         })
       )
-      const recentAchs = perGameResults
-        .flat()
-        .sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time))
-      setRecentAchievements(recentAchs.slice(0, 8))
+      setRecent(perGame.flat().sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time)).slice(0, 8))
     } catch (err) {
       console.error('Failed to load dashboard data:', err)
+      setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -74,312 +60,159 @@ export default function DashboardPage() {
 
   async function handleSync() {
     setSyncing(true)
+    setNotice('')
     try {
-      await syncAPI.syncGames()
+      const { data } = await syncAPI.syncGames()
+      if (data?.message === PRIVATE_MESSAGE) {
+        setNotice("Steam returned no games. Make sure your game details are public in Steam's privacy settings.")
+      }
       await loadData()
     } catch (err) {
       console.error('Sync failed:', err)
+      setNotice('Sync failed. Try again.')
     } finally {
       setSyncing(false)
     }
   }
 
-  // Calculate stats
-  const trackedGames = playerGames.filter((pg) => pg.is_tracked)
-  const totalGames = playerGames.length
-  const totalPlaytime = playerGames.reduce((sum, pg) => sum + (pg.playtime_hours || 0), 0)
-
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center py-32">
-          <div className="animate-spin w-8 h-8 border-2 border-steam-accent border-t-transparent rounded-full" />
-        </div>
+        <p className="py-32 text-center text-muted" role="status">Loading…</p>
       </Layout>
     )
   }
 
+  const stats = dashboardStats(playerGames)
+  const carouselItems = inProgress(playerGames)
+  const perfect = perfectGames(playerGames)
+  const cells = [
+    { value: stats.owned.toLocaleString(), label: 'Games owned' },
+    { value: `${Math.round(stats.hours).toLocaleString()} h`, label: 'Played' },
+    { value: `${stats.unlockedPct}%`, label: 'Achievements unlocked', bar: true },
+    { value: stats.perfect.toLocaleString(), label: 'Perfect games', href: perfect.length ? '#perfect-games' : undefined },
+  ]
+  const allGamesBtn = (
+    <button type="button" onClick={() => setShowAll(true)} className={secondaryBtn}>All games</button>
+  )
+
   return (
     <Layout>
-      {/* ===== Z-PATTERN LAYOUT ===== */}
+      <div className="mb-6 flex items-end gap-4">
+        <img src={player.avatar_url} alt="" className="size-14 flex-none rounded-[10px] bg-border-strong" />
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold tracking-[-0.02em]">{player.persona_name}</h1>
+          <p className="mt-0.5 text-muted">
+            {stats.lastSynced ? `Synced ${timeAgo(stats.lastSynced)}` : 'Not synced yet'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSync}
+          disabled={syncing}
+          className={`ml-auto flex-none cursor-pointer rounded-[7px] bg-ink px-3.5 py-2 text-[13px] font-semibold text-on-ink transition-transform duration-[120ms] ease-[var(--ease-out)] enabled:active:scale-[.97] disabled:opacity-60 motion-reduce:transition-none ${focusCls}`}
+        >
+          {syncing ? 'Syncing…' : 'Sync Steam'}
+        </button>
+      </div>
 
-      {/* ROW 1: Profile (left) + Completion Summary (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Top-left: Player Profile */}
-        <div className="lg:col-span-2 bg-surface-light rounded-xl border border-gray-800 p-6">
-          <div className="flex items-center gap-4 mb-4">
-            <img
-              src={player.avatar_url}
-              alt={player.persona_name}
-              className="w-16 h-16 rounded-xl border-2 border-steam-blue/30"
+      {notice && (
+        <p role="status" className="mb-6 rounded-lg bg-warn-bg px-3.5 py-2.5 text-warn">{notice}</p>
+      )}
+
+      {loadFailed && (
+        <p role="alert" className="mb-6 rounded-lg bg-warn-bg px-3.5 py-2.5 text-warn">Couldn't load your games. Try again.</p>
+      )}
+
+      {playerGames.length === 0 ? (
+        !notice && !loadFailed && <p className="py-12 text-center text-muted">Sync your Steam library to get started.</p>
+      ) : (
+        <>
+          <div className="mb-7 grid grid-cols-4 rounded-[10px] border border-border bg-surface max-[640px]:grid-cols-2">
+            {cells.map((c) => {
+              const Cell = c.href ? 'a' : 'div'
+              return (
+                <Cell
+                  key={c.label}
+                  href={c.href}
+                  aria-label={c.href && `${c.value} ${c.label}`}
+                  className={`border-l border-border px-4 py-3.5 first:border-l-0 max-[640px]:nth-3:border-l-0 max-[640px]:nth-[n+3]:border-t ${c.href ? `transition-colors duration-150 hover:bg-hover motion-reduce:transition-none ${focusCls}` : ''}`}
+                >
+                  <div className="text-[22px] font-semibold tracking-[-0.02em]">{c.value}</div>
+                  <div className="text-xs text-muted">{c.label}</div>
+                  {c.bar && <div className="mt-2"><ProgressBar value={stats.unlockedPct} max={100} /></div>}
+                </Cell>
+              )
+            })}
+          </div>
+
+          {perfect.length > 0 && (
+            <GameCarousel
+              id="perfect-games"
+              items={perfect}
+              title={<>Perfect games <span className="ml-1 text-ultra">{perfect.length}</span></>}
             />
-            <div>
-              <h1 className="text-2xl font-bold text-white">{player.persona_name}</h1>
-              <p className="text-sm text-gray-400">
-                {totalGames} games · {Math.round(totalPlaytime)}h played · {trackedGames.length} tracked
-              </p>
-            </div>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="ml-auto inline-flex items-center gap-2 px-4 py-2 bg-steam-blue/10 hover:bg-steam-blue/20 text-steam-accent text-sm font-medium rounded-lg border border-steam-blue/20 transition-colors disabled:opacity-50"
-            >
-              <HiArrowPath className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Steam'}
-            </button>
-          </div>
-
-          {/* Quick stats row */}
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => setShowAllGames(true)}
-              className="bg-surface rounded-lg p-3 border border-gray-800/50 hover:border-steam-blue/30 transition-colors cursor-pointer"
-            >
-              <div className="text-lg mb-1 text-amber-400"><HiTrophy /></div>
-              <p className="text-xl font-bold text-white text-left">{totalGames}</p>
-              <p className="text-xs text-gray-500 text-left">Games Owned</p>
-            </button>
-            <StatCard icon={<HiSparkles />} label="Tracked" value={trackedGames.length} color="text-blue-400" />
-            <StatCard icon={<HiCpuChip />} label="Total Hours" value={Math.round(totalPlaytime)} color="text-purple-400" />
-          </div>
-        </div>
-
-        {/* Top-right: Overall Completion */}
-        <div className="bg-surface-light rounded-xl border border-gray-800 p-6 flex flex-col items-center justify-center">
-          <h2 className="text-sm font-medium text-gray-400 mb-4">Overall Completion</h2>
-          <ProgressRing
-            value={trackedGames.length}
-            max={Math.max(totalGames, 1)}
-            size={140}
-          />
-          <p className="text-xs text-gray-500 mt-3">Games Being Tracked</p>
-        </div>
-      </div>
-
-      {/* ── COMPLETIONIST SHOWCASE (Steam-style) ── */}
-      {(() => {
-        const completedGames = playerGames.filter(
-          (pg) => pg.totalAchievements > 0 && pg.unlockedCount === pg.totalAchievements
-        )
-        if (completedGames.length === 0) return null
-        const totalPerfectAchievements = completedGames.reduce((sum, pg) => sum + pg.totalAchievements, 0)
-
-        return (
-          <div className="mb-6 bg-surface-light rounded-xl border border-gray-800 overflow-hidden">
-            {/* Card header */}
-            <div className="px-5 pt-4 pb-3 border-b border-gray-800">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                🏆 Completionist Showcase
-              </h2>
-            </div>
-
-            {/* Horizontal game artwork row */}
-            <div className="flex gap-3 overflow-x-auto px-4 pt-4 pb-0 scrollbar-hide">
-              {completedGames.map((pg) => {
-                // Prefer Steam header.jpg (460×215) for the wider showcase look
-                const headerImg = pg.game?.app_id
-                  ? `https://cdn.akamai.steamstatic.com/steam/apps/${pg.game.app_id}/header.jpg`
-                  : pg.game?.img_capsule_url
-
-                return (
-                  <Link
-                    key={pg.id}
-                    to={`/games/${pg.game?.id}`}
-                    className="relative shrink-0 group rounded-lg overflow-hidden"
-                    style={{ width: '230px', height: '108px' }}
-                    title={pg.game?.name}
-                  >
-                    {/* Game artwork */}
-                    {headerImg ? (
-                      <img
-                        src={headerImg}
-                        alt={pg.game?.name}
-                        className="w-full h-full object-cover group-hover:brightness-110 transition-all duration-300"
-                        onError={(e) => {
-                          // fallback to capsule then hide
-                          if (e.target.src !== pg.game?.img_capsule_url) {
-                            e.target.src = pg.game?.img_capsule_url || ''
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                        <HiTrophy className="w-8 h-8 text-amber-400" />
-                      </div>
-                    )}
-
-                    {/* Steam-blue achievement bar at the bottom */}
-                    <div
-                      className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2.5 py-1.5"
-                      style={{ background: 'rgba(27, 67, 124, 0.93)' }}
-                    >
-                      <span className="text-white text-sm font-medium leading-none">
-                        {pg.unlockedCount} / {pg.totalAchievements} Achievements
-                      </span>
-
-                      {/* Rosette / medal badge */}
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
-                        style={{
-                          background: 'radial-gradient(circle at 40% 35%, #60a5fa, #1d4ed8 70%)',
-                          border: '1.5px solid #93c5fd',
-                          boxShadow: '0 0 8px rgba(96,165,250,0.7)',
-                        }}
-                      >
-                        ★
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-
-            {/* Stats footer row */}
-            <div className="border-t border-gray-800 px-5 py-3 flex gap-8">
-              <div>
-                <p className="text-2xl font-bold text-white">{completedGames.length}</p>
-                <p className="text-sm text-gray-400">Perfect Games</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{totalPerfectAchievements}</p>
-                <p className="text-sm text-gray-400">Achievements in Perfect Games</p>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ROW 2 (diagonal): Tracked Games Grid */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">
-            {trackedGames.length > 0 ? 'Tracked Games' : 'Your Games'}
-          </h2>
-          {totalGames === 0 && (
-            <p className="text-sm text-gray-500">Click "Sync Steam" to load your games</p>
           )}
-        </div>
 
-        {(trackedGames.length > 0 ? trackedGames : playerGames.slice(0, 12)).length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {(trackedGames.length > 0 ? trackedGames : playerGames.slice(0, 12)).map((pg) => (
-              <GameCard
-                key={pg.id}
-                game={pg.game}
-                playerGame={pg}
-                unlockedCount={pg.unlockedCount}
-                totalAchievements={pg.totalAchievements}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-surface-light rounded-xl border border-gray-800 p-12 text-center">
-            <HiTrophy className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500">No games yet. Sync your Steam library to get started.</p>
-          </div>
-        )}
-      </div>
+          {carouselItems.length > 0 ? (
+            <GameCarousel items={carouselItems}>{allGamesBtn}</GameCarousel>
+          ) : (
+            <div className="mb-7">
+              <div className="mb-2.5 flex items-center justify-between">
+                <h2 className="text-[13px] font-semibold text-muted">In progress</h2>
+                {allGamesBtn}
+              </div>
+              <p className="text-muted">Open a game and press Sync to load its achievements, or Track it to keep it here.</p>
+            </div>
+          )}
 
-      {/* ROW 3: Recent Achievements (full width when tracked, or 2/3 + AI CTA) */}
-      <div className={trackedGames.length > 0 ? 'grid grid-cols-1 gap-6' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}>
-        {/* Recent Achievements — full width when games are tracked */}
-        <div className={trackedGames.length > 0 ? 'bg-surface-light rounded-xl border border-gray-800 p-6' : 'lg:col-span-2 bg-surface-light rounded-xl border border-gray-800 p-6'}>
-          <h2 className="text-lg font-semibold text-white mb-4">Recent Achievements</h2>
-          {recentAchievements.length > 0 ? (
-            <div className="space-y-2">
-              {recentAchievements.map((pa) => (
-                <div key={pa.id} className="relative">
-                  {pa.game_name && (
-                    <span className="text-[10px] text-gray-600 uppercase tracking-wider">{pa.game_name}</span>
-                  )}
-                  <AchievementCard
+          <section>
+            <h2 className="mb-2.5 text-[13px] font-semibold text-muted">Recently unlocked</h2>
+            {recent.length > 0 ? (
+              <div className="overflow-hidden rounded-[10px] border border-border bg-surface">
+                {recent.map((pa) => (
+                  <AchievementRow
+                    key={pa.id}
                     achievement={pa.achievement}
                     unlocked={pa.unlocked}
                     unlockTime={pa.unlock_time}
+                    gameName={pa.game_name}
                   />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500 text-sm">
-                {trackedGames.length > 0
-                  ? 'Sync achievements from a game to see them here'
-                  : 'Track games and sync achievements to see recent unlocks'}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Achievement Optimizer CTA — hidden once user has tracked games */}
-        {trackedGames.length === 0 && (
-          <div className="bg-gradient-to-br from-purple-900/20 to-steam-dark rounded-xl border border-purple-500/20 p-6 flex flex-col justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-500/10 rounded-full border border-purple-500/20 mb-4">
-                <HiCpuChip className="w-4 h-4 text-purple-400" />
-                <span className="text-xs font-medium text-purple-400">AI Powered</span>
+                ))}
               </div>
-              <h2 className="text-lg font-semibold text-white mb-2">Achievement Optimizer</h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Get AI-generated optimization routes tailored to your progress. Find the fastest path to 100% completion.
-              </p>
-            </div>
-            <p className="text-xs text-gray-600">Track a game to enable AI optimization</p>
-          </div>
-        )}
-      </div>
-
-      {/* Modal: All Games */}
-      {showAllGames && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-light rounded-xl border border-gray-800 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-surface-light border-b border-gray-800 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">All Games ({playerGames.length})</h2>
-              <button
-                onClick={() => setShowAllGames(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Games Grid */}
-            <div className="p-6">
-              {playerGames.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {playerGames.map((pg) => (
-                    <GameCard
-                      key={pg.id}
-                      game={pg.game}
-                      playerGame={pg}
-                      unlockedCount={pg.unlockedCount}
-                      totalAchievements={pg.totalAchievements}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <HiTrophy className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-                  <p className="text-gray-500">No games found</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+            ) : (
+              <p className="text-muted">Unlocks from your tracked games show up here.</p>
+            )}
+          </section>
+        </>
       )}
+
+      {showAll && <AllGamesDialog playerGames={playerGames} onClose={() => setShowAll(false)} />}
     </Layout>
   )
 }
 
-function StatCard({ icon, label, value, color }) {
+function AllGamesDialog({ playerGames, onClose }) {
+  const ref = useRef(null)
+  useEffect(() => { ref.current.showModal() }, []) // native modal: focus trap, Escape, inert background
+
   return (
-    <div className="bg-surface rounded-lg p-3 border border-gray-800/50">
-      <div className={`text-lg mb-1 ${color}`}>{icon}</div>
-      <p className="text-xl font-bold text-white">{value}</p>
-      <p className="text-xs text-gray-500">{label}</p>
-    </div>
+    <dialog
+      ref={ref}
+      aria-labelledby="all-games-title"
+      onClose={onClose}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }} // backdrop click
+      className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-[1100px] overflow-y-auto rounded-[10px] border border-border bg-surface p-0 text-text backdrop:bg-scrim"
+    >
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-3.5">
+        <h2 id="all-games-title" className="text-[15px] font-semibold">All games ({playerGames.length})</h2>
+        <button type="button" onClick={() => ref.current.close()} className={secondaryBtn}>Close</button>
+      </div>
+      <div className="grid grid-cols-5 gap-4 p-5 max-[900px]:grid-cols-4 max-[700px]:grid-cols-3 max-[520px]:grid-cols-2">
+        {playerGames.map((pg) => (
+          <GameCard key={pg.id} game={pg.game} unlockedCount={pg.unlocked_count} totalAchievements={pg.game.total_achievements} />
+        ))}
+      </div>
+    </dialog>
   )
 }

@@ -1,174 +1,130 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { gamesAPI, achievementsAPI, playerAchievementsAPI, playerGamesAPI, syncAPI, dataSourcesAPI, aiAPI } from '../services/api'
+import { HiArrowPath, HiBookmark, HiOutlineBookmark } from 'react-icons/hi2'
+import { gamesAPI, achievementsAPI, playerAchievementsAPI, playerGamesAPI, syncAPI } from '../services/api'
 import Layout from '../components/Layout'
-import AchievementCard from '../components/AchievementCard'
-import AchievementDetailModal from '../components/AchievementDetailModal'
+import AchievementRow from '../components/AchievementRow'
+import AchievementPanel from '../components/AchievementPanel'
+import GuidesCard from '../components/GuidesCard'
 import ProgressBar from '../components/ProgressBar'
-import ProgressRing from '../components/ProgressRing'
-import {
-  HiArrowPath, HiPlus, HiTrash, HiPencil, HiCheck, HiXMark,
-  HiSparkles, HiEye, HiBookmark, HiBookmarkSlash,
-} from 'react-icons/hi2'
+import { rarityBreakdown } from '../utils/stats'
+import { timeAgo } from '../utils/format'
+
+const focusCls = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+const btn = `inline-flex cursor-pointer items-center gap-1.5 rounded-[7px] border px-3.5 py-2 text-[13px] font-semibold transition-[transform,background-color] duration-[120ms,150ms] ease-[var(--ease-out)] enabled:active:scale-[.97] disabled:opacity-60 motion-reduce:transition-none ${focusCls}`
+const control = 'rounded-lg border border-border-strong bg-surface text-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink'
+const tiers = [
+  ['ultra-rare', 'Ultra rare', 'ultra'],
+  ['rare', 'Rare', 'rare'],
+  ['uncommon', 'Uncommon', 'uncommon'],
+  ['common', 'Common', 'common'],
+]
+const tierText = { ultra: 'text-ultra', rare: 'text-rare', uncommon: 'text-uncommon', common: 'text-common' }
+const sorts = {
+  rare: (a, b) => a.global_percent - b.global_percent,
+  easy: (a, b) => b.global_percent - a.global_percent,
+  recent: (a, b) => (Date.parse(b.pa?.unlock_time) || 0) - (Date.parse(a.pa?.unlock_time) || 0),
+}
 
 export default function GameDetailPage() {
   const { gameId } = useParams()
-  const { player } = useAuth()
+  const filterKey = `game-${gameId}-filter`
+  const selectedKey = `game-${gameId}-selected-achievement`
 
   const [game, setGame] = useState(null)
   const [achievements, setAchievements] = useState([])
   const [playerAchs, setPlayerAchs] = useState([])
   const [playerGame, setPlayerGame] = useState(null)
-  const [dataSources, setDataSources] = useState([])
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [syncing, setSyncing] = useState(false)
-  const [filter, setFilter] = useState('all') // all | locked | unlocked
-  const [showAddSource, setShowAddSource] = useState(false)
-  const [newSource, setNewSource] = useState({ url: '', title: '', source_type: 'other' })
-  const [generating, setGenerating] = useState(false)
-  const [selectedAchievement, setSelectedAchievement] = useState(null)
-  const [tipCache, setTipCache] = useState({}) // achievement.id → tip_md
+  const [notice, setNotice] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('rare')
+  const [selectedId, setSelectedId] = useState(null)
+  const [heroIdx, setHeroIdx] = useState(0)
 
   useEffect(() => {
-    loadData()
-    // Restore filter from localStorage when game changes
-    const savedFilter = localStorage.getItem(`game-${gameId}-filter`) || 'all'
-    setFilter(savedFilter)
+    setFilter(localStorage.getItem(filterKey) || 'all')
+    setSelectedId(null)
+    setHeroIdx(0)
+    loadData(true)
   }, [gameId])
 
-  // Restore selected achievement from localStorage after data loads
-  useEffect(() => {
-    console.log('Restoration effect triggered. achievements:', achievements.length, 'playerAchs:', playerAchs.length)
-    if (achievements.length > 0 && playerAchs.length > 0) {
-      const savedAchievementId = localStorage.getItem(`game-${gameId}-selected-achievement`)
-      console.log('Saved achievement ID from localStorage:', savedAchievementId)
-      if (savedAchievementId) {
-        const achId = parseInt(savedAchievementId)
-        const ach = achievements.find(a => a.id === achId)
-        console.log('Found achievement:', ach)
-        if (ach) {
-          const pa = playerAchs.find(pa => pa.achievement_id === achId)
-          console.log('Restoring achievement:', achId, 'with player data:', pa)
-          setSelectedAchievement({
-            achievement: ach,
-            unlocked: pa?.unlocked || false,
-            unlockTime: pa?.unlock_time || null,
-          })
-        }
-      }
-    }
-  }, [achievements, playerAchs, gameId])
-
-  // Save selected achievement to localStorage whenever it changes
-  useEffect(() => {
-    if (selectedAchievement) {
-      console.log('Saving effect - saving achievement:', selectedAchievement.achievement.id)
-      localStorage.setItem(`game-${gameId}-selected-achievement`, selectedAchievement.achievement.id)
-    }
-    // Note: Don't clear localStorage here - only clear in onClose handler to prevent race conditions
-  }, [selectedAchievement, gameId])
-
-  // Save filter to localStorage whenever it changes
-  useEffect(() => {
-    console.log('Saving filter to localStorage:', filter)
-    localStorage.setItem(`game-${gameId}-filter`, filter)
-  }, [filter, gameId])
-
-  async function loadData() {
-    setLoading(true)
+  async function loadData(restoreSelection = false) {
+    setNotFound(false)
     try {
-      const [gameRes, achRes] = await Promise.all([
+      const [gameRes, achRes, paRes, pgRes] = await Promise.all([
         gamesAPI.get(gameId),
         achievementsAPI.list(gameId),
+        playerAchievementsAPI.list(gameId),
+        playerGamesAPI.list(),
       ])
       setGame(gameRes.data)
       setAchievements(achRes.data)
-
-      if (player) {
-        const [paRes, pgRes, dsRes] = await Promise.all([
-          playerAchievementsAPI.list(gameId),
-          playerGamesAPI.list(),
-          dataSourcesAPI.list(gameId),
-        ])
-        setPlayerAchs(paRes.data)
-        const pg = pgRes.data.find((p) => p.game_id === parseInt(gameId))
-        setPlayerGame(pg || null)
-        setDataSources(dsRes.data)
+      setPlayerAchs(paRes.data)
+      setPlayerGame(pgRes.data.find((pg) => pg.game_id === Number(gameId)) || null)
+      if (restoreSelection) {
+        const saved = Number(localStorage.getItem(selectedKey))
+        if (achRes.data.some((a) => a.id === saved)) setSelectedId(saved)
       }
     } catch (err) {
-      console.error('Failed to load game data:', err)
+      if (err.response?.status === 404) { setGame(null); setNotFound(true) }
+      else setNotice("Couldn't load this game. Try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleSyncAchievements() {
-    if (!game) return
+  async function handleSync() {
     setSyncing(true)
+    setNotice('')
     try {
-      await syncAPI.syncAchievements(game.app_id)
+      const { data } = await syncAPI.syncAchievements(game.app_id)
       await loadData()
-    } catch (err) {
-      console.error('Sync failed:', err)
+      if (data?.synced === 0 && data.message) setNotice(data.message)
+    } catch {
+      setNotice('Sync failed. Try again.')
     } finally {
       setSyncing(false)
     }
   }
 
   async function handleToggleTrack() {
-    if (!playerGame) return
     try {
       await playerGamesAPI.update(playerGame.id, { is_tracked: !playerGame.is_tracked })
-      await loadData()
-    } catch (err) {
-      console.error('Toggle track failed:', err)
+      setPlayerGame((pg) => ({ ...pg, is_tracked: !pg.is_tracked }))
+    } catch {
+      setNotice("Couldn't change tracking. Try again.")
     }
   }
 
-  async function handleAddSource(e) {
-    e.preventDefault()
-    if (!newSource.url) return
-    try {
-      await dataSourcesAPI.create({ ...newSource, game_id: parseInt(gameId) })
-      setNewSource({ url: '', title: '', source_type: 'other' })
-      setShowAddSource(false)
-      const { data } = await dataSourcesAPI.list(gameId)
-      setDataSources(data)
-    } catch (err) {
-      console.error('Failed to add source:', err)
-    }
+  function chooseFilter(f) {
+    setFilter(f)
+    localStorage.setItem(filterKey, f)
   }
 
-  async function handleDeleteSource(sourceId) {
-    try {
-      await dataSourcesAPI.delete(sourceId)
-      setDataSources((prev) => prev.filter((s) => s.id !== sourceId))
-    } catch (err) {
-      console.error('Failed to delete source:', err)
-    }
+  function select(achievement) {
+    setSelectedId(achievement.id)
+    localStorage.setItem(selectedKey, achievement.id)
   }
 
-
-  // Build lookup for player achievement status
-  const paMap = {}
-  playerAchs.forEach((pa) => { paMap[pa.achievement_id] = pa })
-
-  const unlockedCount = playerAchs.filter((pa) => pa.unlocked).length
-  const totalCount = achievements.length
-
-  // Filter achievements
-  const filtered = achievements.filter((ach) => {
-    if (filter === 'unlocked') return paMap[ach.id]?.unlocked
-    if (filter === 'locked') return !paMap[ach.id]?.unlocked
-    return true
-  })
+  function closePanel() {
+    // The dialog restores focus itself, but not where the click didn't focus the row (Safari) or after a reload.
+    document.querySelector('main [aria-current="true"]')?.focus()
+    setSelectedId(null)
+    localStorage.removeItem(selectedKey)
+  }
 
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center py-32">
-          <div className="animate-spin w-8 h-8 border-2 border-steam-accent border-t-transparent rounded-full" />
+        <div role="status" aria-label="Loading">
+          <div className="mt-7 aspect-[1920/620] max-h-[240px] rounded-xl bg-track" />
+          <div className="my-[18px] h-7 w-56 rounded-md bg-track" />
+          <div className="mb-6 h-[74px] rounded-[10px] bg-track" />
+          <div className="h-80 rounded-[10px] bg-track" />
         </div>
       </Layout>
     )
@@ -177,252 +133,154 @@ export default function GameDetailPage() {
   if (!game) {
     return (
       <Layout>
-        <div className="text-center py-32">
-          <p className="text-gray-500">Game not found</p>
-          <Link to="/dashboard" className="text-steam-accent text-sm mt-2 inline-block">Back to Dashboard</Link>
+        <div className="py-32 text-center">
+          <p role={notFound ? undefined : 'alert'} className="text-muted">{notFound ? 'Game not found' : "Couldn't load this game. Try again."}</p>
+          <Link to="/dashboard" className={`mt-2 inline-block font-medium underline underline-offset-[3px] ${focusCls}`}>Back to Dashboard</Link>
         </div>
       </Layout>
     )
   }
 
+  const paById = new Map(playerAchs.map((pa) => [pa.achievement_id, pa]))
+  const unlockedIds = new Set(playerAchs.filter((pa) => pa.unlocked).map((pa) => pa.achievement_id))
+  const total = achievements.length
+  const done = achievements.filter((a) => unlockedIds.has(a.id)).length
+  const breakdown = rarityBreakdown(achievements, unlockedIds)
+  const counts = { all: total, locked: total - done, unlocked: done }
+  const q = query.trim().toLowerCase()
+  const rows = achievements
+    .filter((a) => filter === 'all' || (filter === 'unlocked') === unlockedIds.has(a.id))
+    .filter((a) => !q || `${a.display_name} ${a.description || ''}`.toLowerCase().includes(q))
+    .map((a) => ({ ...a, pa: paById.get(a.id) }))
+    .sort(sorts[sort])
+  const selected = achievements.find((a) => a.id === selectedId)
+  const heroes = ['library_hero.jpg', 'header.jpg']
+
   return (
     <Layout>
-      {/* Game Header */}
-      <div className="bg-surface-light rounded-xl border border-gray-800 overflow-hidden mb-6">
-        {game.img_capsule_url && (
-          <div className="h-48 overflow-hidden">
-            <img src={game.img_capsule_url} alt={game.name} className="w-full h-full object-cover opacity-60" />
-          </div>
-        )}
-        <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white mb-1">{game.name}</h1>
-            <p className="text-sm text-gray-400">
-              App ID: {game.app_id} · {totalCount} achievements
-              {playerGame && ` · ${playerGame.playtime_hours}h played`}
+      <Link to="/dashboard" className={`mb-3 inline-block text-[13px] text-muted ${focusCls}`}>← Dashboard</Link>
+
+      {heroIdx < heroes.length && (
+        <img
+          key={heroes[heroIdx]}
+          src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.app_id}/${heroes[heroIdx]}`}
+          alt=""
+          onError={() => setHeroIdx((i) => i + 1)}
+          className="block aspect-[1920/620] max-h-[240px] w-full rounded-xl bg-track object-cover"
+        />
+      )}
+
+      <div className="my-[18px] flex flex-wrap items-end gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-bold leading-[1.1] tracking-[-0.03em]">{game.name}</h1>
+          {playerGame && (
+            <p className="mt-1 text-muted">
+              {Math.round(playerGame.playtime_hours || 0).toLocaleString()} h played · {playerGame.last_synced ? `Synced ${timeAgo(playerGame.last_synced)}` : 'Not synced yet'}
             </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {playerGame && (
-              <button
-                onClick={handleToggleTrack}
-                className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
-                  playerGame.is_tracked
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                    : 'bg-surface border-gray-700 text-gray-400 hover:text-white'
-                }`}
-              >
-                {playerGame.is_tracked ? <HiBookmarkSlash className="w-4 h-4" /> : <HiBookmark className="w-4 h-4" />}
-                {playerGame.is_tracked ? 'Untrack' : 'Track'}
-              </button>
-            )}
+          )}
+        </div>
+        <div className="ml-auto flex gap-2 max-[860px]:ml-0">
+          {playerGame && (
             <button
-              onClick={handleSyncAchievements}
-              disabled={syncing}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-steam-blue/10 hover:bg-steam-blue/20 text-steam-accent text-sm rounded-lg border border-steam-blue/20 transition-colors disabled:opacity-50"
+              type="button"
+              aria-pressed={playerGame.is_tracked}
+              onClick={handleToggleTrack}
+              className={`${btn} border-border-strong ${playerGame.is_tracked ? 'bg-hover' : 'bg-surface'}`}
             >
-              <HiArrowPath className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync'}
+              {playerGame.is_tracked ? <HiBookmark className="size-[15px]" /> : <HiOutlineBookmark className="size-[15px]" />}
+              {playerGame.is_tracked ? 'Tracking' : 'Track'}
             </button>
-          </div>
+          )}
+          <button type="button" onClick={handleSync} disabled={syncing} className={`${btn} border-ink bg-ink text-on-ink`}>
+            <HiArrowPath className="size-[15px]" />
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main: Achievements List */}
-        <div className="lg:col-span-2">
-          {/* Progress + Filters */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
-            <div className="flex-1 w-full sm:w-auto">
-              <ProgressBar value={unlockedCount} max={totalCount} />
-            </div>
-            <div className="flex gap-1 bg-surface rounded-lg p-1 border border-gray-800">
+      {notice && <p role="status" className="mb-6 rounded-lg bg-warn-bg px-3.5 py-2.5 text-warn">{notice}</p>}
+
+      <div className="mb-6 grid grid-cols-[1.3fr_repeat(4,1fr)] rounded-[10px] border border-border bg-surface max-[860px]:grid-cols-4">
+        <div className="px-4 py-3 max-[860px]:col-span-full max-[860px]:border-b max-[520px]:px-3 max-[520px]:py-2.5">
+          <b className="text-[22px] font-semibold tracking-[-0.02em] max-[520px]:text-lg">{done}</b>{' '}
+          <span className="font-medium text-muted">/ {total} · {total ? Math.round((done / total) * 100) : 0}%</span>
+          <small className="block text-xs text-muted">Achievements unlocked</small>
+          <div className="mt-2"><ProgressBar value={done} max={total} /></div>
+        </div>
+        {tiers.map(([tier, label, tone]) => (
+          <div key={tier} className="border-l border-border px-4 py-3 max-[860px]:nth-2:border-l-0 max-[520px]:px-3 max-[520px]:py-2.5">
+            <b className={`text-[22px] font-semibold tracking-[-0.02em] max-[520px]:text-lg ${tierText[tone]}`}>{breakdown[tier].got}</b>{' '}
+            <span className="font-medium text-muted">/ {breakdown[tier].total}</span>
+            <small className="block text-xs text-muted">{label}</small>
+            <div className="mt-2"><ProgressBar value={breakdown[tier].got} max={breakdown[tier].total} tone={tone} /></div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-[1fr_300px] items-start gap-6 max-[860px]:grid-cols-1">
+        <section className="min-w-0">
+          <div className="mb-2.5 flex flex-wrap items-center gap-2">
+            <div role="group" aria-label="Filter" className="inline-flex rounded-lg border border-border-strong bg-surface p-0.5">
               {['all', 'locked', 'unlocked'].map((f) => (
                 <button
                   key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
-                    filter === f
-                      ? 'bg-steam-blue/20 text-steam-accent'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  type="button"
+                  aria-pressed={filter === f}
+                  onClick={() => chooseFilter(f)}
+                  className={`cursor-pointer rounded-md px-2.5 py-[5px] text-[13px] capitalize transition-colors duration-150 ${filter === f ? 'bg-ink text-on-ink' : 'text-muted'} ${focusCls}`}
                 >
-                  {f} {f === 'unlocked' ? `(${unlockedCount})` : f === 'locked' ? `(${totalCount - unlockedCount})` : `(${totalCount})`}
+                  {f} <span className="opacity-70">{counts[f]}</span>
                 </button>
               ))}
             </div>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search achievements"
+              aria-label="Search achievements"
+              className={`min-w-[140px] flex-1 px-2.5 py-[7px] placeholder:text-faint ${control}`}
+            />
+            <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort" className={`px-2 py-[7px] ${control}`}>
+              <option value="rare">Rarest first</option>
+              <option value="easy">Most common first</option>
+              <option value="recent">Recently unlocked</option>
+            </select>
           </div>
 
-          {/* Achievement List */}
-          <div className="space-y-2">
-            {filtered.length > 0 ? (
-              filtered.map((ach) => (
-                <AchievementCard
-                  key={ach.id}
-                  achievement={ach}
-                  unlocked={paMap[ach.id]?.unlocked || false}
-                  unlockTime={paMap[ach.id]?.unlock_time}
-                  onClick={() => {
-                    const selectedAch = {
-                      achievement: ach,
-                      unlocked: paMap[ach.id]?.unlocked || false,
-                      unlockTime: paMap[ach.id]?.unlock_time || null,
-                    }
-                    console.log('Achievement clicked, saving to localStorage:', ach.id)
-                    localStorage.setItem(`game-${gameId}-selected-achievement`, ach.id)
-                    setSelectedAchievement(selectedAch)
-                  }}
-                />
-              ))
-            ) : (
-              <div className="bg-surface-light rounded-xl border border-gray-800 p-8 text-center">
-                <p className="text-gray-500 text-sm">
-                  {totalCount === 0
-                    ? 'Click "Sync" to load achievements from Steam'
-                    : 'No achievements match this filter'}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Completion Ring */}
-          <div className="bg-surface-light rounded-xl border border-gray-800 p-6 flex flex-col items-center">
-            <h3 className="text-m font-bold text-white-400 mb-3">Completion</h3>
-            <ProgressRing value={unlockedCount} max={Math.max(totalCount, 1)} size={130} />
-          </div>
-
-          {/* Rarity Breakdown */}
-          {achievements.length > 0 && (
-            <div className="bg-surface-light rounded-xl border border-gray-800 p-6">
-              <h3 className="text-m font-bold text-white-400 mb-3">Rarity Breakdown</h3>
-              <div className="space-y-2">
-                {[
-                   { tier: 'common',    label: 'Common (30%+)',    color: 'bg-gray-500' },
-                   { tier: 'uncommon',  label: 'Uncommon (<30%)',  color: 'bg-blue-500' },
-                   { tier: 'rare',      label: 'Rare (<15%)',      color: 'bg-amber-500' },
-                   { tier: 'ultra-rare',label: 'Ultra Rare (<5%)', color: 'bg-purple-500' },
-                ].map(({ tier, label, color }) => {
-                  const count = achievements.filter((a) => a.rarity_tier === tier).length
-                  return (
-                    <div key={tier} className="flex items-center gap-2 text-sm">
-                      <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
-                      <span className="text-gray-400 flex-1">{label}</span>
-                      <span className="text-white font-medium">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
+          <div className="overflow-hidden rounded-[10px] border border-border bg-surface">
+            <div aria-hidden="true" className="grid grid-cols-[1fr_90px_100px_110px] gap-3 border-b border-border px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[.05em] text-faint max-[860px]:grid-cols-[1fr_70px]">
+              <span>Achievement</span><span className="text-right">Players</span>
+              <span className="max-[860px]:hidden">Rarity</span><span className="max-[860px]:hidden">Status</span>
             </div>
-          )}
-
-          {/* Bookmarks */}
-          <div className="bg-surface-light rounded-xl border border-gray-800 p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-m font-bold text-white-400">Bookmarks</h3>
-              <button
-                onClick={() => setShowAddSource(!showAddSource)}
-                className="text-steam-accent hover:text-white transition-colors"
-              >
-                {showAddSource ? <HiXMark className="w-4 h-4" /> : <HiPlus className="w-4 h-4" />}
-              </button>
-            </div>
-
-            {showAddSource && (
-              <form onSubmit={handleAddSource} className="mb-4 space-y-2">
-                <input
-                  type="url"
-                  placeholder="URL"
-                  value={newSource.url}
-                  onChange={(e) => setNewSource((s) => ({ ...s, url: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 bg-surface border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-steam-blue"
-                />
-                <input
-                  type="text"
-                  placeholder="Title (optional)"
-                  value={newSource.title}
-                  onChange={(e) => setNewSource((s) => ({ ...s, title: e.target.value }))}
-                  className="w-full px-3 py-2 bg-surface border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-steam-blue"
-                />
-                <select
-                  value={newSource.source_type}
-                  onChange={(e) => setNewSource((s) => ({ ...s, source_type: e.target.value }))}
-                  className="w-full px-3 py-2 bg-surface border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-steam-blue"
-                >
-                  <option value="wiki">Wiki</option>
-                  <option value="article">Article</option>
-                  <option value="blog">Blog</option>
-                  <option value="steam_guide">Steam Guide</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="other">Other</option>
-                </select>
-                <button
-                  type="submit"
-                  className="w-full px-3 py-2 bg-steam-blue/20 hover:bg-steam-blue/30 text-steam-accent text-sm rounded-lg border border-steam-blue/20 transition-colors"
-                >
-                  Add Source
-                </button>
-              </form>
-            )}
-
-            {dataSources.length > 0 ? (
-              <div className="space-y-2">
-                {dataSources.map((source) => (
-                  <div key={source.id} className="flex items-start gap-2 group">
-                    <div className="flex-1 min-w-0">
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-steam-accent hover:text-white transition-colors truncate block"
-                      >
-                        {source.title || source.url}
-                      </a>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-gray-600 uppercase">{source.source_type}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5">
-                      <button
-                        onClick={() => handleDeleteSource(source.id)}
-                        className="text-gray-500 hover:text-red-400 transition-colors"
-                      >
-                        <HiTrash className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-600">No sources yet. Add guides, wikis, or videos.</p>
+            {rows.length > 0 ? rows.map((a) => (
+              <AchievementRow
+                key={a.id}
+                achievement={a}
+                unlocked={unlockedIds.has(a.id)}
+                unlockTime={a.pa?.unlock_time}
+                current={a.id === selectedId}
+                onSelect={select}
+              />
+            )) : (
+              <p className="m-0 p-5 text-muted">{total === 0 ? 'Sync this game to load its achievements.' : 'Nothing matches.'}</p>
             )}
           </div>
-        </div>
+        </section>
+
+        <aside>
+          <GuidesCard gameId={gameId} />
+        </aside>
       </div>
 
-      {/* Achievement Detail Modal */}
-      {selectedAchievement && (
-        <AchievementDetailModal
-          achievement={selectedAchievement.achievement}
-          unlocked={selectedAchievement.unlocked}
-          unlockTime={selectedAchievement.unlockTime}
-          isTracked={playerGame?.is_tracked || false}
-          onClose={() => {
-            console.log('Modal closed, clearing localStorage')
-            localStorage.removeItem(`game-${gameId}-selected-achievement`)
-            setSelectedAchievement(null)
-          }}
-          initialTip={tipCache[selectedAchievement.achievement.id] || null}
-          onTipGenerated={(achId, tipMd) =>
-            setTipCache((prev) => ({ ...prev, [achId]: tipMd }))
-          }
-          game={game}
-          dataSources={dataSources}
-        />
-      )}
+      <AchievementPanel
+        achievement={selected}
+        unlocked={selected ? unlockedIds.has(selected.id) : false}
+        unlockTime={selected && paById.get(selected.id)?.unlock_time}
+        game={game}
+        open={!!selected}
+        onClose={closePanel}
+      />
     </Layout>
   )
 }

@@ -22,3 +22,13 @@ export function inProgress(playerGames) {
     .filter((pg) => total(pg) > 0 && pg.unlocked_count !== total(pg))
     .sort((a, b) => pct(b) - pct(a))
 }
+
+export function rarityBreakdown(achievements, unlockedIds) {
+  const out = Object.fromEntries(['ultra-rare', 'rare', 'uncommon', 'common'].map((t) => [t, { got: 0, total: 0 }]))
+  for (const a of achievements) {
+    const cell = out[a.rarity_tier] || out.common
+    cell.total++
+    if (unlockedIds.has(a.id)) cell.got++
+  }
+  return out
+}

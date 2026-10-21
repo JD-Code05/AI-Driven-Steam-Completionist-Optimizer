@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { dashboardStats, inProgress } from './stats.js'
+import { dashboardStats, inProgress, rarityBreakdown } from './stats.js'
 
 const pg = (id, total, unlocked, extra = {}) => ({
   id, playtime_hours: 0, is_tracked: false, last_synced: null,
@@ -32,4 +32,20 @@ test('inProgress: otherwise unfinished synced games, highest percent first', () 
   const D = pg(5, 10, 1)
   const E = pg(6, 10, 8)
   assert.deepEqual(inProgress([A, D, B, C, E]), [E, B, D])
+})
+
+test('rarityBreakdown: empty list still has every tier', () => {
+  const zero = { got: 0, total: 0 }
+  assert.deepEqual(rarityBreakdown([], new Set()), { 'ultra-rare': zero, rare: zero, uncommon: zero, common: zero })
+})
+
+test('rarityBreakdown: counts per tier, got only for unlocked ids', () => {
+  const a = (id, rarity_tier) => ({ id, rarity_tier })
+  const list = [a(1, 'ultra-rare'), a(2, 'ultra-rare'), a(3, 'rare'), a(4, 'common'), a(5, 'common'), a(6, 'common')]
+  assert.deepEqual(rarityBreakdown(list, new Set([2, 4, 5, 99])), {
+    'ultra-rare': { got: 1, total: 2 },
+    rare: { got: 0, total: 1 },
+    uncommon: { got: 0, total: 0 },
+    common: { got: 2, total: 3 },
+  })
 })

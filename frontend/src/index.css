@@ -134,3 +134,42 @@
 @media (prefers-reduced-motion: reduce) {
   .wall-col { animation: none; }
 }
+
+/* ===== Achievement panel (AchievementPanel.jsx): native <dialog>, drawer on desktop, bottom sheet under 860px ===== */
+.ach-panel { position: fixed; inset: 0 0 0 auto; margin: 0; padding: 0; border: 0; border-left: 1px solid var(--border);
+             width: min(460px, 100vw); height: 100%; max-width: none; max-height: none;
+             background: var(--surface); color: var(--text); box-shadow: -24px 0 48px rgba(0,0,0,.12);
+             transform: translateX(100%); transition: transform 380ms var(--ease-drawer); }
+.ach-panel[open] { transform: none; }
+@starting-style { .ach-panel[open] { transform: translateX(100%); } }
+.ach-panel[open].closing { transform: translateX(100%); }
+.ach-panel::backdrop { background: var(--scrim); opacity: 0; transition: opacity 300ms ease; }
+.ach-panel[open]::backdrop { opacity: 1; }
+@starting-style { .ach-panel[open]::backdrop { opacity: 0; } }
+.ach-panel[open].closing::backdrop { opacity: 0; }
+@media (max-width: 860px) {
+  .ach-panel { inset: auto 0 0 0; width: 100%; height: 88vh; border-left: 0; border-top: 1px solid var(--border);
+               border-radius: 14px 14px 0 0; transform: translateY(100%); }
+  @starting-style { .ach-panel[open] { transform: translateY(100%); } }
+  .ach-panel[open].closing { transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ach-panel, .ach-panel[open].closing { transform: none; opacity: 0; transition: opacity 200ms ease; }
+  .ach-panel[open] { transform: none; opacity: 1; }
+  @starting-style { .ach-panel[open] { transform: none; opacity: 0; } }
+  .ach-panel::backdrop { transition-duration: 200ms; }
+}
+
+/* Guide loading lines */
+.skel { height: 10px; border-radius: 4px; background: var(--track); margin: 10px 0; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation-duration: 2.4s; } }
+
+/* Guide sections arrive one after another */
+.reveal > * { opacity: 0; transform: translateY(6px); animation: rise 260ms var(--ease-out) forwards; }
+.reveal > :nth-child(2) { animation-delay: 50ms; }
+.reveal > :nth-child(3) { animation-delay: 100ms; }
+.reveal > :nth-child(4) { animation-delay: 150ms; }
+@keyframes rise { to { opacity: 1; transform: none; } }
+@keyframes fade-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .reveal > * { transform: none; animation-name: fade-in; animation-duration: 200ms; animation-timing-function: ease; } }

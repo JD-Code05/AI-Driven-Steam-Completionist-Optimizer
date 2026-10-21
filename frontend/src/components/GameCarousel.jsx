@@ -5,7 +5,7 @@ const arrowCls = 'grid size-8 cursor-pointer place-items-center rounded-lg borde
 const icon = { viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', className: 'size-4', 'aria-hidden': true }
 
 // items are player-games; children render at the end of the heading row (e.g. an "All games" button).
-export default function GameCarousel({ items, children }) {
+export default function GameCarousel({ items, children, title = 'In progress', id }) {
   const headingId = useId()
   const track = useRef(null)
   const [edge, setEdge] = useState({ start: true, end: true })
@@ -26,9 +26,9 @@ export default function GameCarousel({ items, children }) {
   const page = (dir) => track.current.scrollBy({ left: dir * track.current.clientWidth })
 
   return (
-    <section className="mb-7">
+    <section id={id} className="mb-7 scroll-mt-4">
       <div className="mb-2.5 flex items-center gap-2">
-        <h2 id={headingId} className="mr-auto text-[13px] font-semibold text-muted">In progress</h2>
+        <h2 id={headingId} className="mr-auto text-[13px] font-semibold text-muted">{title}</h2>
         {children}
         <button type="button" aria-label="Previous games" disabled={edge.start} onClick={() => page(-1)} className={arrowCls}>
           <svg {...icon}><path d="M10 3 5 8l5 5" /></svg>

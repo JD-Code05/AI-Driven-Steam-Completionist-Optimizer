@@ -6,7 +6,7 @@ import GameCard from '../components/GameCard'
 import GameCarousel from '../components/GameCarousel'
 import AchievementRow from '../components/AchievementRow'
 import ProgressBar from '../components/ProgressBar'
-import { dashboardStats, inProgress } from '../utils/stats'
+import { dashboardStats, inProgress, perfectGames } from '../utils/stats'
 import { timeAgo } from '../utils/format'
 
 const PRIVATE_MESSAGE = 'No games found or profile is private'
@@ -85,11 +85,12 @@ export default function DashboardPage() {
 
   const stats = dashboardStats(playerGames)
   const carouselItems = inProgress(playerGames)
+  const perfect = perfectGames(playerGames)
   const cells = [
     { value: stats.owned.toLocaleString(), label: 'Games owned' },
     { value: `${Math.round(stats.hours).toLocaleString()} h`, label: 'Played' },
     { value: `${stats.unlockedPct}%`, label: 'Achievements unlocked', bar: true },
-    { value: stats.perfect.toLocaleString(), label: 'Perfect games' },
+    { value: stats.perfect.toLocaleString(), label: 'Perfect games', href: perfect.length ? '#perfect-games' : undefined },
   ]
   const allGamesBtn = (
     <button type="button" onClick={() => setShowAll(true)} className={secondaryBtn}>All games</button>
@@ -128,17 +129,30 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="mb-7 grid grid-cols-4 rounded-[10px] border border-border bg-surface max-[640px]:grid-cols-2">
-            {cells.map((c) => (
-              <div
-                key={c.label}
-                className="border-l border-border px-4 py-3.5 first:border-l-0 max-[640px]:nth-3:border-l-0 max-[640px]:nth-[n+3]:border-t"
-              >
-                <div className="text-[22px] font-semibold tracking-[-0.02em]">{c.value}</div>
-                <div className="text-xs text-muted">{c.label}</div>
-                {c.bar && <div className="mt-2"><ProgressBar value={stats.unlockedPct} max={100} /></div>}
-              </div>
-            ))}
+            {cells.map((c) => {
+              const Cell = c.href ? 'a' : 'div'
+              return (
+                <Cell
+                  key={c.label}
+                  href={c.href}
+                  aria-label={c.href && `${c.value} ${c.label}`}
+                  className={`border-l border-border px-4 py-3.5 first:border-l-0 max-[640px]:nth-3:border-l-0 max-[640px]:nth-[n+3]:border-t ${c.href ? `transition-colors duration-150 hover:bg-hover motion-reduce:transition-none ${focusCls}` : ''}`}
+                >
+                  <div className="text-[22px] font-semibold tracking-[-0.02em]">{c.value}</div>
+                  <div className="text-xs text-muted">{c.label}</div>
+                  {c.bar && <div className="mt-2"><ProgressBar value={stats.unlockedPct} max={100} /></div>}
+                </Cell>
+              )
+            })}
           </div>
+
+          {perfect.length > 0 && (
+            <GameCarousel
+              id="perfect-games"
+              items={perfect}
+              title={<>Perfect games <span className="ml-1 text-ultra">{perfect.length}</span></>}
+            />
+          )}
 
           {carouselItems.length > 0 ? (
             <GameCarousel items={carouselItems}>{allGamesBtn}</GameCarousel>

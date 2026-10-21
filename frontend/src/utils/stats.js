@@ -26,6 +26,13 @@ export function inProgress(playerGames) {
     .slice(0, 12)
 }
 
+export function perfectGames(playerGames) {
+  // ISO strings sort lexicographically; games without a completion date go last
+  return playerGames
+    .filter((pg) => total(pg) > 0 && pg.unlocked_count === total(pg))
+    .sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''))
+}
+
 export function rarityBreakdown(achievements, unlockedIds) {
   const out = Object.fromEntries(['ultra-rare', 'rare', 'uncommon', 'common'].map((t) => [t, { got: 0, total: 0 }]))
   for (const a of achievements) {

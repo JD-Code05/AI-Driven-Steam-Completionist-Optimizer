@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { dashboardStats, inProgress, rarityBreakdown } from './stats.js'
+import { dashboardStats, inProgress, perfectGames, rarityBreakdown } from './stats.js'
 
 const pg = (id, total, unlocked, extra = {}) => ({
   id, playtime_hours: 0, is_tracked: false, last_synced: null,
@@ -40,6 +40,14 @@ test('inProgress: a freshly synced library with no achievements loaded still sho
   const shown = inProgress(library)
   assert.equal(shown.length, 12)
   assert.equal(shown[0].playtime_hours, 19)
+})
+
+test('perfectGames: only fully unlocked synced games, newest completion first, undated last', () => {
+  const old = pg(8, 5, 5, { completed_at: '2026-01-02T00:00:00' })
+  const recent = pg(9, 3, 3, { completed_at: '2026-09-30T08:00:00' })
+  const undated = pg(10, 4, 4, { completed_at: null })
+  assert.deepEqual(perfectGames([B, C, old, undated, recent]), [recent, old, undated])
+  assert.deepEqual(perfectGames([]), [])
 })
 
 test('rarityBreakdown: empty list still has every tier', () => {

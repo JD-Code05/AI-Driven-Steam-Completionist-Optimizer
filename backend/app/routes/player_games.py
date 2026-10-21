@@ -19,14 +19,23 @@ def list_player_games():
         query = query.filter_by(is_tracked=True)
 
     results = query.all()
-    unlocked = dict(
-        db.session.query(Achievement.game_id, db.func.count())
+    unlocked = {
+        game_id: (count, latest)
+        for game_id, count, latest in db.session.query(
+            Achievement.game_id, db.func.count(), db.func.max(PlayerAchievement.unlock_time)
+        )
         .join(PlayerAchievement, PlayerAchievement.achievement_id == Achievement.id)
         .filter(PlayerAchievement.player_id == request.player_id, PlayerAchievement.unlocked.is_(True))
         .group_by(Achievement.game_id)
         .all()
-    )
-    return jsonify([{**pg.to_dict(), 'unlocked_count': unlocked.get(pg.game_id, 0)} for pg in results])
+    }
+
+    def with_progress(pg):
+        count, latest = unlocked.get(pg.game_id, (0, None))
+        # completed_at: the player's latest unlock, i.e. when a perfect game was finished
+        return {**pg.to_dict(), 'unlocked_count': count, 'completed_at': latest.isoformat() if latest else None}
+
+    return jsonify([with_progress(pg) for pg in results])
 
 
 @player_games_bp.route('/<int:pg_id>', methods=['PUT'])

@@ -73,7 +73,7 @@ export default function OptimizationPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-32">
-          <div className="animate-spin w-8 h-8 border-2 border-muted border-t-transparent rounded-full" />
+          <div className="animate-spin motion-reduce:animate-none w-8 h-8 border-2 border-muted border-t-transparent rounded-full" />
         </div>
       </Layout>
     )
@@ -106,7 +106,7 @@ export default function OptimizationPage() {
               disabled={generating}
               className="ml-auto inline-flex items-center gap-2 px-3 py-2 bg-hover hover:bg-track text-text text-sm rounded-lg border border-border-strong transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
-              <HiArrowPath className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+              <HiArrowPath className={`w-4 h-4 ${generating ? 'animate-spin motion-reduce:animate-none' : ''}`} />
               {generating ? 'Regenerating...' : 'Regenerate'}
             </button>
           )}
@@ -135,7 +135,7 @@ export default function OptimizationPage() {
       {/* Generating indicator */}
       {generating && (
         <div className="bg-surface rounded-xl border border-border p-12 text-center mb-6">
-          <div className="animate-spin w-10 h-10 border-2 border-ink border-t-transparent rounded-full mx-auto mb-4" />
+          <div className="animate-spin motion-reduce:animate-none w-10 h-10 border-2 border-ink border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-text font-medium">Generating optimization route...</p>
           <p className="text-xs text-muted mt-1">This may take 15-30 seconds</p>
         </div>
@@ -176,7 +176,7 @@ export default function OptimizationPage() {
               disabled={generating}
               className="inline-flex items-center gap-2 px-5 py-3 bg-ink text-on-ink font-medium rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
-              <HiSparkles className={`w-5 h-5 ${generating ? 'animate-pulse' : ''}`} />
+              <HiSparkles className={`w-5 h-5 ${generating ? 'animate-pulse motion-reduce:animate-none' : ''}`} />
               {generating ? 'Generating...' : 'Generate AI Route'}
             </button>
             <Link

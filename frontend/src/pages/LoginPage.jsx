@@ -36,7 +36,7 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin w-8 h-8 border-2 border-muted border-t-transparent rounded-full" />
+        <div className="animate-spin motion-reduce:animate-none w-8 h-8 border-2 border-muted border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -47,7 +47,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative grid min-h-screen min-[821px]:grid-cols-[minmax(360px,5fr)_6fr]">
-      <section className="flex flex-col px-4 pt-5 pb-6 min-[821px]:px-12 min-[821px]:py-7">
+      <main className="flex flex-col px-4 pt-5 pb-6 min-[821px]:px-12 min-[821px]:py-7">
         <div className="absolute top-4 left-4 right-4 z-[2] flex items-center justify-between min-[821px]:static">
           <span className="font-bold tracking-[-.01em] text-base bg-surface px-2.5 py-1 rounded-[7px] min-[821px]:bg-transparent min-[821px]:p-0">
             Steam Achievement Optimizer
@@ -92,7 +92,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-faint text-xs">Not affiliated with Valve. Uses the Steam Web API.</p>
-      </section>
+      </main>
 
       <aside className="wall" aria-hidden="true">
         {Array.from({ length: cols }, (_, c) => {

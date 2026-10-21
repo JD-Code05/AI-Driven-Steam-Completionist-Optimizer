@@ -36,6 +36,7 @@ export default function GameDetailPage() {
   const [playerAchs, setPlayerAchs] = useState([])
   const [playerGame, setPlayerGame] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [notice, setNotice] = useState('')
   const [filter, setFilter] = useState('all')
@@ -52,6 +53,7 @@ export default function GameDetailPage() {
   }, [gameId])
 
   async function loadData(restoreSelection = false) {
+    setNotFound(false)
     try {
       const [gameRes, achRes, paRes, pgRes] = await Promise.all([
         gamesAPI.get(gameId),
@@ -67,8 +69,9 @@ export default function GameDetailPage() {
         const saved = Number(localStorage.getItem(selectedKey))
         if (achRes.data.some((a) => a.id === saved)) setSelectedId(saved)
       }
-    } catch {
-      setGame(null)
+    } catch (err) {
+      if (err.response?.status === 404) { setGame(null); setNotFound(true) }
+      else setNotice("Couldn't load this game. Try again.")
     } finally {
       setLoading(false)
     }
@@ -78,8 +81,9 @@ export default function GameDetailPage() {
     setSyncing(true)
     setNotice('')
     try {
-      await syncAPI.syncAchievements(game.app_id)
+      const { data } = await syncAPI.syncAchievements(game.app_id)
       await loadData()
+      if (data?.synced === 0 && data.message) setNotice(data.message)
     } catch {
       setNotice('Sync failed. Try again.')
     } finally {
@@ -130,7 +134,7 @@ export default function GameDetailPage() {
     return (
       <Layout>
         <div className="py-32 text-center">
-          <p className="text-muted">Game not found</p>
+          <p role={notFound ? undefined : 'alert'} className="text-muted">{notFound ? 'Game not found' : "Couldn't load this game. Try again."}</p>
           <Link to="/dashboard" className={`mt-2 inline-block font-medium underline underline-offset-[3px] ${focusCls}`}>Back to Dashboard</Link>
         </div>
       </Layout>
@@ -225,7 +229,7 @@ export default function GameDetailPage() {
                   onClick={() => chooseFilter(f)}
                   className={`cursor-pointer rounded-md px-2.5 py-[5px] text-[13px] capitalize transition-colors duration-150 ${filter === f ? 'bg-ink text-on-ink' : 'text-muted'} ${focusCls}`}
                 >
-                  {f}<span className="ml-[3px] opacity-70">{counts[f]}</span>
+                  {f} <span className="opacity-70">{counts[f]}</span>
                 </button>
               ))}
             </div>

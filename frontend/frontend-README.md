@@ -178,7 +178,7 @@ Renders a parsed guide (from `achievementTipParser`) as four sections: estimated
 
 ### `GuidesCard`
 
-Lists the guide links the player saved for a game, with an add-a-link form (type inferred by `inferSourceType`) and a remove button per link.
+Lists the guide links for the game (shared by everyone who owns it), with an add-a-link form (type inferred by `inferSourceType`) and a remove button per link.
 
 ### `RarityBadge`
 

@@ -47,7 +47,7 @@ export default function GuidesCard({ gameId }) {
   return (
     <section className="rounded-[10px] border border-border bg-surface px-4 py-3.5">
       <h3 className="mb-1 text-[13px] font-semibold">Guides</h3>
-      <p className="mb-2.5 text-xs text-muted">Links you keep for this game.</p>
+      <p className="mb-2.5 text-xs text-muted">Guide links for this game.</p>
 
       {sources.length === 0 && <p className="border-t border-border py-2.5 text-[13px] text-muted">No guides yet.</p>}
       {sources.map((s) => (
@@ -65,7 +65,7 @@ export default function GuidesCard({ gameId }) {
           </a>
           <button
             type="button"
-            aria-label="Remove guide"
+            aria-label={`Remove ${s.title || s.url}`}
             onClick={() => remove(s.id)}
             className={`grid size-6 flex-none cursor-pointer place-items-center rounded-md text-muted transition-colors duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-hover [@media(hover:hover)_and_(pointer:fine)]:hover:text-text ${focusCls}`}
           >

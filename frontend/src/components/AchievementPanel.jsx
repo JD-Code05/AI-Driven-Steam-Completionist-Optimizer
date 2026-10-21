@@ -55,8 +55,8 @@ export default function AchievementPanel({ achievement, unlocked, unlockTime, ga
     setGuide({ status: 'loading' })
     try {
       const { data } = await aiAPI.getAchievementTip(id)
-      localStorage.setItem(tipKey(player.id, id), data.tip_md)
       if (currentId.current === id) setGuide({ status: 'ready', tip: parseAchievementTip(data.tip_md) })
+      try { localStorage.setItem(tipKey(player.id, id), data.tip_md) } catch { /* storage full or blocked: the guide still shows */ }
     } catch (err) {
       const message = typeof err.response?.data?.error === 'string' ? err.response.data.error : "Couldn't write a guide right now."
       if (currentId.current === id) setGuide({ status: 'error', message })

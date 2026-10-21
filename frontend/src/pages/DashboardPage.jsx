@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const [notice, setNotice] = useState('')
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     if (player) loadData()
@@ -28,6 +29,7 @@ export default function DashboardPage() {
 
   async function loadData() {
     setLoading(true)
+    setLoadFailed(false)
     try {
       const { data: pgData } = await playerGamesAPI.list()
       setPlayerGames(pgData)
@@ -50,6 +52,7 @@ export default function DashboardPage() {
       setRecent(perGame.flat().sort((a, b) => new Date(b.unlock_time) - new Date(a.unlock_time)).slice(0, 8))
     } catch (err) {
       console.error('Failed to load dashboard data:', err)
+      setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -116,8 +119,12 @@ export default function DashboardPage() {
         <p role="status" className="mb-6 rounded-lg bg-warn-bg px-3.5 py-2.5 text-warn">{notice}</p>
       )}
 
+      {loadFailed && (
+        <p role="alert" className="mb-6 rounded-lg bg-warn-bg px-3.5 py-2.5 text-warn">Couldn't load your games. Try again.</p>
+      )}
+
       {playerGames.length === 0 ? (
-        !notice && <p className="py-12 text-center text-muted">Sync your Steam library to get started.</p>
+        !notice && !loadFailed && <p className="py-12 text-center text-muted">Sync your Steam library to get started.</p>
       ) : (
         <>
           <div className="mb-7 grid grid-cols-4 rounded-[10px] border border-border bg-surface max-[640px]:grid-cols-2">
@@ -136,7 +143,13 @@ export default function DashboardPage() {
           {carouselItems.length > 0 ? (
             <GameCarousel items={carouselItems}>{allGamesBtn}</GameCarousel>
           ) : (
-            <div className="mb-7 flex justify-end">{allGamesBtn}</div>
+            <div className="mb-7">
+              <div className="mb-2.5 flex items-center justify-between">
+                <h2 className="text-[13px] font-semibold text-muted">In progress</h2>
+                {allGamesBtn}
+              </div>
+              <p className="text-muted">Open a game and press Sync to load its achievements, or Track it to keep it here.</p>
+            </div>
           )}
 
           <section>
@@ -179,7 +192,7 @@ function AllGamesDialog({ playerGames, onClose }) {
     >
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-3.5">
         <h2 id="all-games-title" className="text-[15px] font-semibold">All games ({playerGames.length})</h2>
-        <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
+        <button type="button" onClick={() => ref.current.close()} className={secondaryBtn}>Close</button>
       </div>
       <div className="grid grid-cols-5 gap-4 p-5 max-[900px]:grid-cols-4 max-[700px]:grid-cols-3 max-[520px]:grid-cols-2">
         {playerGames.map((pg) => (

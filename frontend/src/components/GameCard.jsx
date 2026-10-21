@@ -68,12 +68,12 @@ export default function GameCard({ game, unlockedCount, totalAchievements }) {
         <>
           <div className="flex justify-between text-xs text-muted">
             <span>{unlocked} / {total}</span>
-            {perfect ? <span className="font-semibold text-ultra">Perfect</span> : <span>{Math.round((unlocked / total) * 100)}%</span>}
+            {perfect ? <span className="font-semibold text-ultra">Perfect</span> : <span>{Math.floor((unlocked / total) * 100)}%</span>}
           </div>
           <div className="mt-2"><ProgressBar value={unlocked} max={total} tone={perfect ? 'ultra' : 'ink'} /></div>
         </>
       ) : (
-        <p className="text-xs text-muted">No achievements</p>
+        <p className="text-xs text-muted">Not synced yet</p>
       )}
     </Link>
   )

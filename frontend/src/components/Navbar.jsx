@@ -8,7 +8,7 @@ export default function Navbar() {
   return (
     <nav className="bg-surface border-b border-border">
       <div className="max-w-[1160px] mx-auto px-5 py-3 flex items-center gap-6 max-[520px]:gap-3 max-[520px]:px-4">
-        <Link to="/dashboard" className="font-bold tracking-[-0.01em] text-text">
+        <Link to="/dashboard" aria-label="Achievement Optimizer" className="font-bold tracking-[-0.01em] text-text">
           <span className="max-[520px]:hidden">Achievement Optimizer</span>
           <span className="hidden max-[520px]:inline">AO</span>
         </Link>

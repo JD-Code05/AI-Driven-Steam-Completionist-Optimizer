@@ -46,6 +46,13 @@ export default function GameDetailPage() {
   const [heroIdx, setHeroIdx] = useState(0)
 
   useEffect(() => {
+    // drop the previous game's data so a failed load can't show it under the new URL
+    setGame(null)
+    setAchievements([])
+    setPlayerAchs([])
+    setPlayerGame(null)
+    setNotice('')
+    setLoading(true)
     setFilter(localStorage.getItem(filterKey) || 'all')
     setSelectedId(null)
     setHeroIdx(0)

@@ -108,8 +108,8 @@ function extractNumberedItems(text) {
   const items = []
   
   // Match all numbered items: "1. text", "2. text", etc.
-  // This regex matches "number." followed by everything until the next number or end of string
-  const regex = /(\d+)[\.\)]\s*(.+?)(?=(?:\n\s*)?(?:\d+[\.\)]|\Z))/gs
+  // An item marker is a number + "." or ")" with whitespace on both sides, so "Zone 2 key" or "1.5" never splits an item
+  const regex = /(?:^|\s)(\d+)[.)]\s+([\s\S]+?)(?=\s+\d+[.)]\s|$)/g
   
   let match
   while ((match = regex.exec(text)) !== null) {

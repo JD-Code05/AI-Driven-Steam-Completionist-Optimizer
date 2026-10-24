@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from flask import Blueprint, request, jsonify
 from ..extensions import db
 from ..models.data_source import DataSource
@@ -10,6 +12,13 @@ data_sources_bp = Blueprint('data_sources', __name__)
 # shortcut: any owner of the game can edit its sources (no per-player owner column); add an owner column if sources get abused
 def owns_game(game_id):
     return PlayerGame.query.filter_by(player_id=request.player_id, game_id=game_id).first() is not None
+
+
+def is_web_url(url):
+    if not isinstance(url, str):
+        return False
+    parsed = urlparse(url)
+    return parsed.scheme in ('http', 'https') and bool(parsed.netloc)
 
 
 @data_sources_bp.route('', methods=['GET'])
@@ -31,6 +40,8 @@ def create_data_source():
     data = request.get_json()
     if not data or not data.get('game_id') or not data.get('url'):
         return jsonify({'error': 'game_id and url are required'}), 400
+    if not is_web_url(data['url']):
+        return jsonify({'error': 'url must be an http(s) link'}), 400
     if not owns_game(data['game_id']):
         return jsonify({'error': 'Game not found'}), 404
 
@@ -56,6 +67,8 @@ def update_data_source(source_id):
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
+    if 'url' in data and not is_web_url(data['url']):
+        return jsonify({'error': 'url must be an http(s) link'}), 400
 
     for field in ['url', 'title', 'source_type']:
         if field in data:

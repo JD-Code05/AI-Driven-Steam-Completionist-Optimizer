@@ -85,3 +85,18 @@ class AccessTests(BaseTestCase):
         r = self.client.post('/api/data-sources', json={'game_id': self.game_a.id, 'url': 'https://x.example'},
                              headers=self.auth(self.a))
         self.assertEqual(r.status_code, 201)
+
+    def test_data_source_url_must_be_http(self):
+        for url in ['javascript:alert(1)', 'file:///etc/passwd', 'https://', 123]:
+            with self.subTest(url=url):
+                r = self.client.post('/api/data-sources', json={'game_id': self.game_a.id, 'url': url},
+                                     headers=self.auth(self.a))
+                self.assertEqual(r.status_code, 400)
+
+        source = DataSource(game_id=self.game_a.id, url='https://y.example')
+        db.session.add(source)
+        db.session.commit()
+        r = self.client.put(f'/api/data-sources/{source.id}', json={'url': 'javascript:alert(1)'},
+                            headers=self.auth(self.a))
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(db.session.get(DataSource, source.id).url, 'https://y.example')

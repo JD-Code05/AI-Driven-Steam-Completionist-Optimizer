@@ -65,7 +65,7 @@ export default function LoginPage() {
 
           {errorCode && (
             <p role="alert" className="max-w-[360px] mb-3.5 rounded-lg border border-warn/30 bg-warn-bg text-warn px-3 py-2 text-[13px]">
-              {ERRORS[errorCode] ?? "Sign-in didn't finish. Try again."}
+              {Object.hasOwn(ERRORS, errorCode) ? ERRORS[errorCode] : "Sign-in didn't finish. Try again."}
             </p>
           )}
 

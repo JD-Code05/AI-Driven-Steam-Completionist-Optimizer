@@ -21,6 +21,7 @@ export function inProgress(playerGames) {
   const synced = (pg) => total(pg) > 0
   // Unsynced games are included so a fresh library isn't empty; pct is NaN for them, so playtime breaks the tie.
   return playerGames
+    .filter((pg) => pg.game?.total_achievements !== 0)
     .filter((pg) => !synced(pg) || pg.unlocked_count !== total(pg))
     .sort((a, b) => synced(b) - synced(a) || pct(b) - pct(a) || (b.playtime_hours || 0) - (a.playtime_hours || 0))
     .slice(0, 12)

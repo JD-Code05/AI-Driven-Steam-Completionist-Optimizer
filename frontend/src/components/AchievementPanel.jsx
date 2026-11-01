@@ -13,7 +13,7 @@ const inkBtn = `cursor-pointer rounded-[7px] bg-ink px-3.5 py-2 text-[13px] font
 const linkBtn = `cursor-pointer text-xs text-muted underline underline-offset-[3px] ${focusCls}`
 const tipKey = (playerId, achievementId) => `achievement-tip-${playerId}-${achievementId}`
 
-export default function AchievementPanel({ achievement, unlocked, unlockTime, game, open, onClose }) {
+export default function AchievementPanel({ achievement, unlocked, unlockTime, game, open, onClose, missableNote }) {
   const ref = useRef(null)
   const { player } = useAuth()
   const [guide, setGuide] = useState({ status: 'empty' }) // empty | loading | error | ready
@@ -114,6 +114,10 @@ export default function AchievementPanel({ achievement, unlocked, unlockTime, ga
               <span className="text-[13px] text-muted">of {game?.name} players have this</span>
               <div className="mt-2"><ProgressBar value={pct} max={100} tone="ultra" /></div>
             </div>
+
+            {missableNote && (
+              <p className="mb-[22px] rounded-[10px] bg-warn-bg px-3.5 py-2.5 text-[13px] text-warn"><b>Can be missed.</b> {missableNote}</p>
+            )}
 
             <div className="mb-1 flex items-center justify-between">
               <h3 className="text-[15px] font-semibold">Guide</h3>

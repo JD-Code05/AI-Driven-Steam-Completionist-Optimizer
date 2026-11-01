@@ -83,7 +83,7 @@ frontend/
     │   ├── LoginPage.jsx        # Pitch, Steam sign-in button, looping cover wall
     │   ├── DashboardPage.jsx    # Profile + sync, stat strip, game carousel, recent unlocks
     │   ├── GameDetailPage.jsx   # Hero art, progress by rarity, achievement list, guides card
-    │   └── OptimizationPage.jsx # AI-generated Markdown route viewer
+    │   └── OptimizationPage.jsx # Achievement map (uses RouteTree)
     │
     └── utils/
         ├── achievementTipParser.js  # Parses raw AI Markdown into a structured 4-section object
@@ -104,7 +104,7 @@ Defined in `App.jsx`:
 | `/login`                  | `LoginPage`           |      No       | Landing page with Steam sign-in button                 |
 | `/dashboard`              | `DashboardPage`       |      Yes      | Main dashboard with game library and stats             |
 | `/games/:gameId`          | `GameDetailPage`      |      Yes      | Game detail with achievements, sources, and AI actions |
-| `/games/:gameId/optimize` | `OptimizationPage`    |      Yes      | View/generate AI optimization route                    |
+| `/games/:gameId/optimize` | `OptimizationPage`    |      Yes      | View/generate the achievement map                      |
 | `*` (catch-all)           | Redirects to `/login` |       —       | Handles unknown routes                                 |
 
 ### LoginPage
@@ -131,10 +131,10 @@ Defined in `App.jsx`:
 
 ### OptimizationPage
 
-- Back navigation link to the game detail page
-- Header with the model name and when the route was generated
-- **Markdown rendering** of the AI guide using `react-markdown` with prose styling
-- Error display for API failures
+- Reached from the game page's **View route** link
+- Game banner, Gemini's short message, progress bar, Rewrite
+- `RouteTree` draws the map from `utils/routeTree.js`: `buildRouteView` joins the saved route with live unlock status, `visibleSteps` folds long branches, `layoutTree` positions themed and story trees
+- Clicking a node opens `AchievementPanel`; missable steps also show their note there
 
 ---
 

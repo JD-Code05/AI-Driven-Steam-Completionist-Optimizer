@@ -70,6 +70,10 @@ def update_data_source(source_id):
     if 'url' in data and not is_web_url(data['url']):
         return jsonify({'error': 'url must be an http(s) link'}), 400
 
+    if 'url' in data and data['url'] != source.url:
+        source.scraped_content = None
+        source.last_scraped = None
+
     for field in ['url', 'title', 'source_type']:
         if field in data:
             setattr(source, field, data[field])

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route tree preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#111110;--surface:#1a1a19;--hover:#222220;--border:#2a2927;--strong:#44413c;--text:#edece8;--muted:#a9a69f;--ink:#edece8;--on:#111110;--track:#2a2927;
+    --done:#6cc28f;--common:#a19e96;--uncommon:#6cc28f;--rare:#86a9f0;--ultra:#e5ad55;--ease:cubic-bezier(.23,1,.32,1);--drawer:cubic-bezier(.32,.72,0,1)}
+  *{box-sizing:border-box}
+  ::selection{background:#6cc28f44}
+  html{background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .hero{position:relative;height:300px;overflow:hidden}
+  .hero img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
+  .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#11111022 0%,#111110bb 48%,#111110ee 72%,#111110 100%)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .head{position:relative;margin-top:-170px;display:grid;grid-template-columns:1fr minmax(0,440px);gap:40px;align-items:end;z-index:1}
+  h1{margin:0;font-size:clamp(34px,4.6vw,52px);line-height:1.04;letter-spacing:-.035em;font-weight:700;text-wrap:balance}
+  .game{margin:10px 0 0;color:#d5d3cd;font-size:15px}
+  .msg{margin:0;font-size:15px;line-height:1.55;color:#dddbd5;max-width:58ch}
+  .bar{margin-top:14px;height:5px;border-radius:9px;background:#ffffff1f;overflow:hidden}
+  .bar i{display:block;height:100%;width:25%;border-radius:9px;background:var(--done)}
+  .count{margin-top:7px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .scroll{overflow-x:auto;margin-top:28px;padding-bottom:32px;scrollbar-color:var(--strong) transparent}
+  .tree{position:relative;width:1072px;height:810px;margin:0 auto}
+  .tree>svg{position:absolute;inset:0;width:100%;height:100%}
+  .link{fill:none;stroke:var(--strong);stroke-width:2.5;stroke-linecap:round}
+  .link.ready{stroke:#77736b}
+  .link.done{stroke:var(--done);stroke-dasharray:1;stroke-dashoffset:1;animation:grow 900ms var(--ease) forwards}
+  @keyframes grow{to{stroke-dashoffset:0}}
+  .root{position:absolute;left:502px;top:0;width:68px;height:102px;border-radius:9px;object-fit:cover;box-shadow:0 10px 26px #000a;outline:1px solid #ffffff22}
+  .branch{position:absolute;transform:translateX(-50%);background:var(--bg);padding:2px 10px;font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap}
+  .node{position:absolute;display:flex;align-items:center;gap:14px;width:198px;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:14px}
+  .node:focus-visible{outline:2px solid var(--ink);outline-offset:5px}
+  .pic{position:relative;flex:none;width:68px;height:68px;border-radius:14px;transition:transform 200ms var(--ease),box-shadow 200ms var(--ease)}
+  .pic img{width:100%;height:100%;display:block;border-radius:14px;object-fit:cover}
+  .node:hover .pic{transform:translateY(-3px)}
+  .done-n .pic{box-shadow:0 6px 18px #0009;outline:2px solid var(--done);outline-offset:2px}
+  .next-n .pic{box-shadow:0 8px 24px #000b;outline:2px solid var(--ink);outline-offset:3px}
+  .next-n .pic::after{content:"";position:absolute;inset:-3px;border-radius:17px;border:2px solid var(--ink);animation:ping 2.6s var(--ease) infinite}
+  @keyframes ping{0%{transform:scale(1);opacity:.7}70%,100%{transform:scale(1.2);opacity:0}}
+  .later-n .pic{box-shadow:0 0 0 1px var(--strong)}
+  .later-n .pic img{opacity:.8}
+  .tick{position:absolute;right:-8px;bottom:-8px;width:24px;height:24px;border-radius:50%;background:var(--done);border:3px solid var(--bg);display:grid;place-items:center}
+  .tick svg{width:12px;height:12px}
+  .txt{min-width:0}
+  .txt b{display:block;font-size:14.5px;font-weight:600;line-height:1.25}
+  .txt>span{display:block;margin-top:3px;font-size:12.5px;color:var(--muted);line-height:1.35}
+  .later-n .txt b{color:#c9c6bf}
+  .next-n .txt>span{color:var(--text);font-weight:500}
+  .scrim{position:fixed;inset:0;background:#00000088;opacity:0;pointer-events:none;transition:opacity 240ms var(--ease);z-index:4}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--border);padding:22px;transform:translateX(100%);visibility:hidden;transition:transform 340ms var(--drawer),visibility 340ms;z-index:5;box-shadow:-18px 0 50px #0008}
+  .open .scrim{opacity:1;pointer-events:auto}.open .panel{transform:none;visibility:visible}
+  .close{float:right;width:32px;height:32px;border:0;border-radius:7px;background:var(--hover);color:var(--text);cursor:pointer;display:grid;place-items:center}
+  .close:focus-visible,.write:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .panel img{width:76px;height:76px;border-radius:14px;display:block}
+  .panel h2{margin:16px 0 6px;font-size:22px;letter-spacing:-.02em;line-height:1.15}
+  .panel p{margin:0;color:var(--muted);font-size:14.5px}
+  .write{margin-top:20px;border:0;border-radius:9px;padding:11px 16px;background:var(--ink);color:var(--on);font:600 14px Geist,system-ui,sans-serif;cursor:pointer}
+  .note{color:var(--muted);font-size:12.5px;text-align:center;padding:0 24px 28px}
+  @media (max-width:820px){.head{grid-template-columns:1fr;gap:16px;margin-top:-150px}.hero{height:260px}}
+  @media (prefers-reduced-motion:reduce){.link.done{animation:none;stroke-dashoffset:0}.next-n .pic::after{animation:none;opacity:0}.pic,.panel,.scrim{transition:none}}
+</style>
+</head>
+<body>
+  <div class="hero"><img alt="" src="https://cdn.cloudflare.steamstatic.com/steam/apps/413150/library_hero.jpg"></div>
+  <div class="wrap">
+    <header class="head">
+      <div>
+        <h1>Your route to 100%</h1>
+        <p class="game">Stardew Valley</p>
+      </div>
+      <div>
+        <p class="msg">Money comes first, because it fills up just by playing. Upgrade your house along the way, and leave the rarest fish until the end. Nothing here can be missed.</p>
+        <div class="bar"><i></i></div>
+        <div class="count">3 of 12 shown · sample progress</div>
+      </div>
+    </header>
+
+    <div class="scroll" tabindex="0" aria-label="Achievement tree">
+      <div class="tree" id="tree">
+        <svg id="lines" viewBox="0 0 1072 810" aria-hidden="true"></svg>
+        <img class="root" alt="Stardew Valley cover" src="https://cdn.cloudflare.steamstatic.com/steam/apps/413150/library_600x900_2x.jpg">
+      </div>
+    </div>
+    <p class="note">Preview with real Steam art and sample progress. Click any achievement.</p>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="panel" id="panel" aria-label="Achievement details">
+    <button class="close" id="close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+    <img id="pImg" alt="">
+    <h2 id="pName"></h2>
+    <p id="pDesc"></p>
+    <button class="write">Write a guide</button>
+  </aside>
+
+<script>
+const base='https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/413150/'
+const X=[92,352,612,872], Y=[200,330,460,590,720]
+const branches=[
+ ['Money',0,[['Greenhorn','Earn 15,000g','dac82a85ceb1493bb2155d41890b4a6099f5eaa5','6177e17de19eea95ad1af0503f32d6ef74ceacee','done'],
+             ['Cowpoke','Earn 50,000g','2a5c84271214a05435ea1c7a60bacc1cbbc5fa5a','07bdd379cb15b8732e156a38b1207bc72c6e9212','next'],
+             ['Homesteader','Earn 250,000g','b81de530e1de874a4add0b690d372df3ffc44ea2','54b8d609ae49a3bfc55ba518622f7eeb155863df','later'],
+             ['Millionaire','Earn 1,000,000g','f96dbf78eebf05e027d1ca2fb25296a7db8f2036','836d9237fd8fea1556e1697a6186a50c5be26d02','later'],
+             ['Legend','Earn 10,000,000g','0db49d4d468db3597bdbbd5c42296de05b02dc5d','ec152654126dba4a9d308c6e6716049af7885d49','later']]],
+ ['Home',1,[['Moving Up','Upgrade your house','67f2c064873468b80c57218f0992c15f7d2fe83e','7c1023f2d0451e46774d3fe48061add05595739c','done'],
+            ['Living Large','Upgrade your house again','62714a3e361e1def16aac1dcd1e482dcf2fc3ce0','68b279f8824f4dd6ef2b757e166fd182fecd8766','next']]],
+ ['Helping out',2,[['Gofer','Complete 10 Help Wanted requests','ac76efc80def3d8a94b0deb8afa50acd635acb0d','22972e08a13cc9b0314b10fd1342dbd8dd35560f','next'],
+            ['A Big Help','Complete 40 Help Wanted requests','8d54bc99fbb7cdcd3039509fc09439ad60f6907a','a3e42867d1c81be9401ac76f90f3059934133919','later']]],
+ ['Fishing',3,[['Fisherman','Catch 10 different fish','e3c6269d906e909415d31d5b7962166c0951509d','0c09af367d44d9ab2959568dd64be4e4778aa358','done'],
+            ["Ol' Mariner",'Catch 24 different fish','2400541f7661159b571cf767db7af4bd1125341a','f7dadfcf2c688a119d43243db3e2dfa21dd28b76','next'],
+            ['Master Angler','Catch every fish','398b5f107e5c81252d168cb5807ece5b147f1cd4','cb64333b373a2c66f68694ca7ba06681ae484f5d','later']]],
+]
+const tree=document.getElementById('tree'), lines=document.getElementById('lines')
+const pImg=document.getElementById('pImg'),pName=document.getElementById('pName'),pDesc=document.getElementById('pDesc'),closeBtn=document.getElementById('close')
+const NS='http://www.w3.org/2000/svg'
+function line(d,cls,delay){const p=document.createElementNS(NS,'path');p.setAttribute('d',d);p.setAttribute('class','link '+cls);if(cls==='done'){p.setAttribute('pathLength','1');p.style.animationDelay=delay+'ms'}lines.appendChild(p)}
+branches.forEach(([name,col,items])=>{
+  const x=X[col]
+  const first=items[0][4]
+  line(`M536 102 C536 165 ${x} 125 ${x} ${Y[0]-4}`, first==='done'?'done':'ready', 100)
+  const b=document.createElement('div');b.className='branch';b.textContent=name;b.style.left=x+'px';b.style.top='150px';tree.appendChild(b)
+  items.forEach((it,i)=>{
+    if(i){const st=it[4];line(`M${x} ${Y[i-1]+76} L${x} ${Y[i]-8}`, st==='later'?'':'done', 500+i*120)}
+    const [n,d,icon,gray,state]=it
+    const el=document.createElement('button');el.type='button';el.className='node '+state+'-n';el.style.left=(x-34)+'px';el.style.top=Y[i]+'px'
+    const tick=state==='done'?'<span class="tick"><svg viewBox="0 0 12 12" fill="none" stroke="#111110" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.4 2.4 4.6-5"/></svg></span>':''
+    const sub=state==='done'?'Done':state==='next'?'Do this next':d
+    el.innerHTML=`<span class="pic"><img alt="" src="${base}${state==='later'?gray:icon}.jpg">${tick}</span><span class="txt"><b>${n}</b><span>${sub}</span></span>`
+    el.onclick=()=>{pImg.src=base+icon+'.jpg';pName.textContent=n;pDesc.textContent=d;document.body.classList.add('open');closeBtn.focus()}
+    tree.appendChild(el)
+  })
+})
+const shut=()=>document.body.classList.remove('open')
+closeBtn.onclick=shut;document.getElementById('scrim').onclick=shut;addEventListener('keydown',e=>{if(e.key==='Escape')shut()})
+</script>
+</body>
+</html>

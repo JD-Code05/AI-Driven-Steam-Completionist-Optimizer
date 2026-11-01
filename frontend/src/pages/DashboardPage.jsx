@@ -8,6 +8,7 @@ import AchievementRow from '../components/AchievementRow'
 import ProgressBar from '../components/ProgressBar'
 import { dashboardStats, inProgress, perfectGames } from '../utils/stats'
 import { timeAgo } from '../utils/format'
+import { runLibrarySync, syncSummary } from '../utils/librarySync'
 
 const PRIVATE_MESSAGE = 'No games found or profile is private'
 const focusCls = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
@@ -18,6 +19,8 @@ export default function DashboardPage() {
   const [playerGames, setPlayerGames] = useState([])
   const [recent, setRecent] = useState([])
   const [syncing, setSyncing] = useState(false)
+  const [progress, setProgress] = useState(null)
+  const mounted = useRef(true)
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const [notice, setNotice] = useState('')
@@ -26,6 +29,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (player) loadData()
   }, [player])
+
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -66,12 +74,20 @@ export default function DashboardPage() {
       if (data?.message === PRIVATE_MESSAGE) {
         setNotice("Steam returned no games. Make sure your game details are public in Steam's privacy settings.")
       }
+      const result = await runLibrarySync(data?.achievement_app_ids ?? [], syncAPI.syncAchievements, {
+        onProgress: (current, total) => setProgress({ current, total }),
+        shouldStop: () => !mounted.current,
+      })
+      if (!mounted.current) return
+      const summary = syncSummary(result)
+      if (summary) setNotice(summary)
       await loadData()
     } catch (err) {
       console.error('Sync failed:', err)
       setNotice('Sync failed. Try again.')
     } finally {
       setSyncing(false)
+      setProgress(null)
     }
   }
 
@@ -112,7 +128,9 @@ export default function DashboardPage() {
           disabled={syncing}
           className={`ml-auto flex-none cursor-pointer rounded-[7px] bg-ink px-3.5 py-2 text-[13px] font-semibold text-on-ink transition-transform duration-[120ms] ease-[var(--ease-out)] enabled:active:scale-[.97] disabled:opacity-60 motion-reduce:transition-none ${focusCls}`}
         >
-          {syncing ? 'Syncing…' : 'Sync Steam'}
+          <span aria-live="polite">
+            {progress ? `Syncing ${progress.current} of ${progress.total}` : syncing ? 'Syncing…' : 'Sync Steam'}
+          </span>
         </button>
       </div>
 
@@ -162,7 +180,7 @@ export default function DashboardPage() {
                 <h2 className="text-[13px] font-semibold text-muted">In progress</h2>
                 {allGamesBtn}
               </div>
-              <p className="text-muted">Open a game and press Sync to load its achievements, or Track it to keep it here.</p>
+              <p className="text-muted">Press Sync Steam to load your achievements, or Track a game to keep it here.</p>
             </div>
           )}
 

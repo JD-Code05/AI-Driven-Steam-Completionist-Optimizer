@@ -8,7 +8,7 @@ const pg = (id, total, unlocked, extra = {}) => ({
 })
 const A = pg(1, 10, 10, { playtime_hours: 1, last_synced: '2026-10-01T00:00:00Z' })
 const B = pg(2, 20, 5, { playtime_hours: 2, last_synced: '2026-10-05T00:00:00Z' })
-const C = pg(3, 0, 0, { playtime_hours: 12.5 })
+const C = pg(3, null, 0, { playtime_hours: 12.5 })
 
 test('dashboardStats: empty library', () => {
   assert.deepEqual(dashboardStats([]), { owned: 0, hours: 0, unlockedPct: 0, perfect: 0, lastSynced: null })
@@ -31,12 +31,17 @@ test('inProgress: tracked games win when any exist', () => {
 test('inProgress: otherwise every unfinished game, synced by percent, then unsynced by playtime', () => {
   const D = pg(5, 10, 1)
   const E = pg(6, 10, 8)
-  const F = pg(7, 0, 0, { playtime_hours: 40 })
+  const F = pg(7, null, 0, { playtime_hours: 40 })
   assert.deepEqual(inProgress([A, D, B, C, E, F]), [E, B, D, F, C])
 })
 
+test('inProgress: a game confirmed to have no achievements is left out, one not checked yet stays', () => {
+  const none = pg(11, 0, 0, { playtime_hours: 99 })
+  assert.deepEqual(inProgress([none, C]), [C])
+})
+
 test('inProgress: a freshly synced library with no achievements loaded still shows games, capped at 12', () => {
-  const library = Array.from({ length: 20 }, (_, i) => pg(100 + i, 0, 0, { playtime_hours: i }))
+  const library = Array.from({ length: 20 }, (_, i) => pg(100 + i, null, 0, { playtime_hours: i }))
   const shown = inProgress(library)
   assert.equal(shown.length, 12)
   assert.equal(shown[0].playtime_hours, 19)

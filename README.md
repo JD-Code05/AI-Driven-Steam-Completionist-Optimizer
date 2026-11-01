@@ -40,7 +40,7 @@ An AI-driven web application that helps Steam gamers plan and optimize their ach
 │  React 19 + Vite  │────▶│  Flask 3.1 API     │────▶│    MySQL 8.0      │
 │  Tailwind CSS v4  │     │  Gunicorn          │     │   7 tables        │
 │  nginx (prod)     │     │  JWT Auth          │     │                   │
-│  Port 3000        │     │  Port 5000         │     │   Port 3306       │
+│  Port 3100        │     │  Port 5000         │     │   Port 3306       │
 └───────────────────┘     └────────┬───────────┘     └───────────────────┘
                                    │
                     ┌──────────────┼──────────────┐
@@ -119,7 +119,7 @@ This will:
 
 | Service         | URL                                                                  |
 | --------------- | -------------------------------------------------------------------- |
-| **Frontend**    | [http://localhost:3000](http://localhost:3000)                       |
+| **Frontend**    | [http://localhost:3100](http://localhost:3100)                       |
 | **Backend API** | [http://localhost:5000/api/health](http://localhost:5000/api/health) |
 | **MySQL**       | `localhost:3306` (connect via any MySQL client)                      |
 
@@ -259,7 +259,7 @@ The script will:
 
 | Service      | Access Method                                                   |
 | ------------ | --------------------------------------------------------------- |
-| **Frontend** | [http://localhost:3000](http://localhost:3000)                |
+| **Frontend** | [http://localhost:3100](http://localhost:3100)                |
 | **Backend**  | `kubectl port-forward -n steam-optimizer svc/backend 5000:5000` |
 
 ### Useful K8s commands
@@ -440,11 +440,11 @@ docker-compose restart backend
 
 **Port conflicts**
 
-If ports 3000, 5000, or 3306 are already in use:
+If ports 3100, 5000, or 3306 are already in use:
 
 ```bash
 # Find what's using a port
-lsof -i :3000
+lsof -i :3100
 
 # Change ports in docker-compose.yml under the respective service's "ports" section
 ```

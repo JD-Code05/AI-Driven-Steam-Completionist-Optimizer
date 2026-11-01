@@ -1,14 +1,107 @@
+import json
 import logging
+import time
 from flask import Blueprint, request, jsonify
-import google.generativeai as genai
 from ..extensions import db
 from ..models.game import Game
 from ..models.achievement import Achievement
+from ..models.optimization_route import OptimizationRoute
 from ..models.player_achievement import PlayerAchievement
+from ..services.gemini import GeminiError, GeminiNotConfigured, generate_text, model_name
+from ..services.guide_context import build_guide_context
+from ..services.route_builder import ROUTE_SCHEMA, ROUTE_SYSTEM, build_route_prompt, output_limit, validate_route
 from ..utils.auth import auth_required
+from .data_sources import owns_game
 
 logger = logging.getLogger(__name__)
 ai_bp = Blueprint('ai', __name__)
+
+ROUTE_SECONDS = 110  # scraping and every Gemini attempt must finish inside gunicorn's 120 s limit
+MIN_ATTEMPT_SECONDS = 10
+
+
+def saved_route(player_id, game_id):
+    return OptimizationRoute.query.filter_by(player_id=player_id, game_id=game_id).first()
+
+
+def route_response(row):
+    return jsonify({
+        'game_id': row.game_id,
+        'route': json.loads(row.summary_md),
+        'model_used': row.model_used,
+        'source_ids_used': row.source_ids_used,
+        'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+    })
+
+
+@ai_bp.route('/routes/<int:game_id>', methods=['GET'])
+@auth_required
+def get_route(game_id):
+    if not owns_game(game_id):
+        return jsonify({'error': 'Game not found'}), 404
+    row = saved_route(request.player_id, game_id)
+    try:
+        return route_response(row) if row else (jsonify({'error': 'No route yet'}), 404)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'No route yet'}), 404
+
+
+# shortcut: no limit on generations and the work runs inside the request, which is fine for one user; add a rate limit and a background job before other people can sign in
+@ai_bp.route('/routes/<int:game_id>', methods=['POST'])
+@auth_required
+def generate_route(game_id):
+    game = db.session.get(Game, game_id)
+    if not game or not owns_game(game_id):
+        return jsonify({'error': 'Game not found'}), 404
+
+    achievements = Achievement.query.filter_by(game_id=game_id).all()
+    if not achievements:
+        return jsonify({'error': "Sync this game's achievements first"}), 400
+
+    deadline = time.monotonic() + ROUTE_SECONDS
+
+    unlocked_ids = {
+        pa.achievement_id
+        for pa in PlayerAchievement.query.filter_by(player_id=request.player_id, unlocked=True)
+    }
+    guide_text, source_ids = build_guide_context(game)
+    prompt = build_route_prompt(game, achievements, unlocked_ids, guide_text)
+
+    validated = None
+    try:
+        for _ in range(2):
+            remaining = deadline - time.monotonic()
+            if remaining < MIN_ATTEMPT_SECONDS:
+                break
+            # thinking would spend the output limit and the time large games need
+            text = generate_text(
+                ROUTE_SYSTEM, prompt, temperature=0.4,
+                max_output_tokens=output_limit(len(achievements)), response_schema=ROUTE_SCHEMA,
+                timeout_ms=int(remaining * 1000), thinking_budget=0,
+            )
+            try:
+                validated = validate_route(json.loads(text), achievements)
+                break
+            except ValueError as e:
+                logger.warning(f'Gemini returned an invalid route for game {game_id}: {e}')
+    except GeminiNotConfigured:
+        return jsonify({'error': 'GEMINI_API_KEY is not configured'}), 400
+    except GeminiError as e:
+        logger.error(f'Route generation error: {e}')
+        return jsonify({'error': "Couldn't write a route right now. Try again."}), 502
+    if validated is None:
+        return jsonify({'error': "Couldn't write a valid route. Try again."}), 502
+
+    row = saved_route(request.player_id, game_id)
+    if not row:
+        row = OptimizationRoute(player_id=request.player_id, game_id=game_id)
+        db.session.add(row)
+    row.summary_md = json.dumps(validated)
+    row.source_ids_used = source_ids
+    row.model_used = model_name()[:50]
+    db.session.commit()
+    return route_response(row)
+
 
 @ai_bp.route('/achievement-tip/<int:achievement_id>', methods=['POST'])
 @auth_required
@@ -29,15 +122,7 @@ def get_achievement_tip(achievement_id):
     ).first()
     already_unlocked = pa.unlocked if pa else False
 
-    sources_context = ""
-    # Hardcoded fallback RAG context for Stardew Valley showcasing
-    if game.app_id == 413150:
-        from ..services.scraper import ScraperService
-        scraper = ScraperService()
-        logger.info("Stardew Valley detected. Scraping Stardew Valley Wiki for RAG context...")
-        result = scraper.scrape_url("https://stardewvalleywiki.com/Achievements")
-        if result.get('content'):
-            sources_context = f"### Source: Stardew Valley Wiki (https://stardewvalleywiki.com/Stardew_Valley_Wiki)\n\n{result['content']}"
+    sources_context, _ = build_guide_context(game)
 
     # Build a focused, concise prompt for this one achievement
     status_str = "already unlocked ✅" if already_unlocked else "not yet unlocked 🔒"
@@ -50,12 +135,7 @@ def get_achievement_tip(achievement_id):
         f"  - Player Status: {status_str}\n\n"
     )
 
-    if sources_context:
-        user_prompt += (
-            "## Reference Materials (scraped from Stardew Valley Wiki)\n"
-            "Use the information below to give specific, actionable advice:\n\n"
-            + sources_context + "\n\n---\n"
-        )
+    user_prompt += sources_context
 
     user_prompt += (
         "Based on the above, provide a focused guide for this single achievement.\n\n"
@@ -86,36 +166,16 @@ def get_achievement_tip(achievement_id):
     )
 
     try:
-        from flask import current_app
-        api_key = current_app.config.get('GEMINI_API_KEY', '')
-        model_name = current_app.config.get('GEMINI_MODEL', 'gemini-2.5-flash')
-
-        if not api_key:
-            return jsonify({'error': 'GEMINI_API_KEY is not configured'}), 400
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=ACHIEVEMENT_TIP_SYSTEM,
-        )
-        response = model.generate_content(
-            user_prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.5,
-                max_output_tokens=2048,
-            ),
-        )
-        tip_md = response.text
-        if not tip_md:
-            return jsonify({'error': 'Gemini returned an empty response'}), 500
-
+        tip_md = generate_text(ACHIEVEMENT_TIP_SYSTEM, user_prompt, temperature=0.5, max_output_tokens=2048)
         return jsonify({
             'achievement_id': achievement_id,
             'achievement_name': achievement.display_name,
             'tip_md': tip_md,
-            'model_used': model_name,
+            'model_used': model_name(),
         })
 
-    except Exception as e:
+    except GeminiNotConfigured:
+        return jsonify({'error': 'GEMINI_API_KEY is not configured'}), 400
+    except GeminiError as e:
         logger.error(f"Achievement tip generation error: {e}")
         return jsonify({'error': f'AI generation failed: {str(e)}'}), 500

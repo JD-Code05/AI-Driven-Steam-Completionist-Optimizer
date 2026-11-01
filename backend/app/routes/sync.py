@@ -5,10 +5,15 @@ from ..models.game import Game
 from ..models.player_game import PlayerGame
 from ..models.achievement import Achievement
 from ..models.player_achievement import PlayerAchievement
-from ..services.steam_api import SteamAPIService
+from ..services.steam_api import SteamAPIError, SteamAPIService
 from ..utils.auth import auth_required
 
 sync_bp = Blueprint('sync', __name__)
+
+
+def steam_failure(error):
+    status = error.status if error.status in (403, 429) else 502
+    return jsonify({'error': "Couldn't reach Steam. Try again."}), status
 
 
 @sync_bp.route('/games', methods=['POST'])
@@ -16,12 +21,16 @@ sync_bp = Blueprint('sync', __name__)
 def sync_games():
     """Fetch and upsert all owned games for the authenticated player."""
     steam_service = SteamAPIService()
-    owned_games = steam_service.get_owned_games(request.steam_id)
+    try:
+        owned_games = steam_service.get_owned_games(request.steam_id)
+    except SteamAPIError as e:
+        return steam_failure(e)
 
     if not owned_games:
         return jsonify({'message': 'No games found or profile is private', 'synced': 0})
 
     synced_count = 0
+    achievement_app_ids = []
     for g in owned_games:
         # Upsert game
         game = Game.query.filter_by(app_id=g['app_id']).first()
@@ -40,6 +49,12 @@ def sync_games():
                 game.img_icon_url = g['img_icon_url']
             if g['img_logo_url']:
                 game.img_logo_url = g['img_logo_url']
+
+        # NULL = not checked yet, 0 = confirmed none. Set after the flush: the column default would replace a None at insert.
+        if not game.total_achievements:
+            game.total_achievements = None if g['has_stats'] else 0
+        if g['has_stats']:
+            achievement_app_ids.append(g['app_id'])
 
         # Upsert player-game association
         pg = PlayerGame.query.filter_by(
@@ -60,7 +75,11 @@ def sync_games():
         synced_count += 1
 
     db.session.commit()
-    return jsonify({'message': f'Synced {synced_count} games', 'synced': synced_count})
+    return jsonify({
+        'message': f'Synced {synced_count} games',
+        'synced': synced_count,
+        'achievement_app_ids': achievement_app_ids,
+    })
 
 
 @sync_bp.route('/achievements/<int:app_id>', methods=['POST'])
@@ -73,16 +92,24 @@ def sync_achievements(app_id):
 
     steam_service = SteamAPIService()
 
-    # 1. Get achievement schema (definitions)
-    schema = steam_service.get_game_achievements_schema(app_id)
-    if not schema:
-        return jsonify({'message': 'No achievements found for this game', 'synced': 0})
+    # All Steam calls happen before any write, so a failure changes nothing
+    try:
+        # 1. Get achievement schema (definitions)
+        schema = steam_service.get_game_achievements_schema(app_id)
+        if not schema:
+            # an odd answer from Steam shouldn't erase a game we already know has achievements
+            if not Achievement.query.filter_by(game_id=game.id).first():
+                game.total_achievements = 0
+                db.session.commit()
+            return jsonify({'message': 'No achievements found for this game', 'synced': 0})
 
-    # 2. Get global percentages
-    global_pcts = steam_service.get_global_achievement_percentages(app_id)
+        # 2. Get global percentages
+        global_pcts = steam_service.get_global_achievement_percentages(app_id)
 
-    # 3. Get player's achievement status
-    player_achs = steam_service.get_player_achievements(request.steam_id, app_id)
+        # 3. Get player's achievement status
+        player_achs = steam_service.get_player_achievements(request.steam_id, app_id)
+    except SteamAPIError as e:
+        return steam_failure(e)
     player_ach_map = {a['api_name']: a for a in player_achs}
 
     # 4. Upsert achievements and player progress
@@ -132,7 +159,7 @@ def sync_achievements(app_id):
                 unlock_time=unlock_time,
             )
             db.session.add(pa)
-        else:
+        elif player_data:
             pa.unlocked = unlocked
             if unlock_time:
                 pa.unlock_time = unlock_time

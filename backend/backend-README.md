@@ -44,7 +44,7 @@ The AI flow is focused on **per-achievement guidance** — when a user clicks an
 | gunicorn            | 23.0.0  | Production WSGI server                         |
 | requests            | 2.32.3  | HTTP client for Steam API calls + web scraping |
 | beautifulsoup4      | 4.13.4  | HTML parsing for web scraping                  |
-| google-generativeai | 0.8.5   | Gemini AI SDK                                  |
+| google-genai | 0.8.5   | Gemini AI SDK                                  |
 | marshmallow         | 3.26.1  | Data serialization                             |
 
 ---
@@ -81,7 +81,7 @@ backend/
     │   ├── data_sources.py # /api/data-sources — Bookmark CRUD (no scraping)
     │   ├── auth.py         # /api/auth — Steam OpenID login/callback + JWT
     │   ├── sync.py         # /api/sync — Sync games/achievements from Steam API
-    │   ├── ai.py           # /api/ai — Per-achievement AI tip generation
+    │   ├── ai.py           # /api/ai — AI tips and saved achievement routes
     │   └── steamgriddb.py  # /api/steamgriddb — Proxy for SteamGridDB artwork
     │
     ├── services/           # Business logic (3 service classes)
@@ -293,7 +293,7 @@ Applied to sync and AI routes. It:
 | `/api/player-achievements` | player_achievements | Yes   | 1 (list)                                    |
 | `/api/data-sources`        | data_sources        | Yes   | 4 (CRUD only — no scrape, no auto-discover) |
 | `/api/sync`                | sync                | Yes   | 2 (games, achievements)                     |
-| `/api/ai`                  | ai                  | Yes   | 1 (achievement-tip)                         |
+| `/api/ai`                  | ai                  | Yes   | 3 (achievement-tip, routes GET/POST)        |
 | `/api/steamgriddb`         | steamgriddb         | Yes   | 1 (grid image proxy)                        |
 
 ### Full Endpoint Reference
@@ -308,6 +308,8 @@ Applied to sync and AI routes. It:
 | POST                | `/api/sync/games`                          | Bearer | Sync all owned games from Steam          |
 | POST                | `/api/sync/achievements/<app_id>`          | Bearer | Sync achievements for one game           |
 | POST                | `/api/ai/achievement-tip/<achievement_id>` | Bearer | Generate AI tip for a single achievement |
+| GET                 | `/api/ai/routes/<game_id>`                 | Bearer | Saved achievement route, or 404          |
+| POST                | `/api/ai/routes/<game_id>`                 | Bearer | Generate or replace the route            |
 | GET                 | `/api/data-sources`                        | Bearer | List bookmarks for a game (`?game_id=`)  |
 | POST                | `/api/data-sources`                        | Bearer | Add a bookmark                           |
 | PUT                 | `/api/data-sources/<id>`                   | Bearer | Update a bookmark                        |

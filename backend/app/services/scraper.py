@@ -1,5 +1,9 @@
 import re
+import ipaddress
 import logging
+import socket
+from urllib.parse import urljoin, urlparse
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -16,6 +20,33 @@ _HEADERS = {
 # Tags that are typically navigation/boilerplate
 _STRIP_TAGS = ['nav', 'header', 'footer', 'aside', 'script', 'style', 'noscript', 'iframe', 'form']
 
+_DEFAULT_PORTS = {'http': 80, 'https': 443}
+_ALLOWED_TYPES = {'text/html', 'application/xhtml+xml', 'text/plain'}
+MAX_REDIRECTS = 3
+MAX_BYTES = 5 * 1024 * 1024
+
+
+# shortcut: checks the address but doesn't pin it, so DNS rebinding could still reach internal hosts; pin the checked IP before other people can sign in
+def is_public_url(url):
+    """True only for http(s) on default ports where every resolved address is public."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in _DEFAULT_PORTS or not parsed.hostname:
+            return False
+        if parsed.port not in (None, _DEFAULT_PORTS[parsed.scheme]):
+            return False
+        addresses = socket.getaddrinfo(parsed.hostname, None)
+    except (ValueError, OSError):
+        return False
+    if not addresses:
+        return False
+    for info in addresses:
+        address = ipaddress.ip_address(info[4][0].split('%')[0])
+        mapped = getattr(address, 'ipv4_mapped', None)
+        if not (mapped or address).is_global:
+            return False
+    return True
+
 
 class ScraperService:
     """Scrapes web pages for AI RAG context."""
@@ -24,7 +55,7 @@ class ScraperService:
         # Configure a session with retries for transient network/DNS issues
         self.session = requests.Session()
         retry = Retry(
-            total=3,
+            total=1,  # the caller has a time budget
             backoff_factor=0.5,
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["HEAD", "GET", "OPTIONS"]
@@ -33,16 +64,41 @@ class ScraperService:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
-    def scrape_url(self, url):
+    def _fetch(self, url, timeout):
+        """Return (content_type, body), checking every redirect hop and capping the size."""
+        for _ in range(MAX_REDIRECTS + 1):
+            if not is_public_url(url):
+                raise requests.RequestException('Address is not allowed')
+            resp = self.session.get(url, headers=_HEADERS, timeout=timeout, stream=True, allow_redirects=False)
+            location = resp.headers.get('Location')
+            if 300 <= resp.status_code < 400 and location:
+                url = urljoin(url, location)
+                continue
+            if resp.status_code >= 400:
+                raise requests.RequestException(f'HTTP {resp.status_code}')
+            content_type = resp.headers.get('Content-Type', '').split(';')[0].strip().lower()
+            if content_type not in _ALLOWED_TYPES:
+                raise requests.RequestException(f'Unsupported content type {content_type}')
+            body = b''
+            for chunk in resp.iter_content(chunk_size=65536):
+                body += chunk
+                if len(body) > MAX_BYTES:
+                    raise requests.RequestException('Page is too large')
+            return content_type, body
+        raise requests.RequestException('Too many redirects')
+
+    def scrape_url(self, url, timeout=15):
         """Scrape a regular web page using BeautifulSoup."""
         try:
-            resp = self.session.get(url, headers=_HEADERS, timeout=15)
-            resp.raise_for_status()
+            content_type, body = self._fetch(url, timeout)
         except requests.RequestException as e:
             logger.warning(f"Failed to fetch {url}: {e}")
             return {'title': None, 'content': None, 'error': str(e)}
 
-        soup = BeautifulSoup(resp.text, 'html.parser')
+        if content_type == 'text/plain':
+            return {'title': None, 'content': body.decode('utf-8', errors='replace')[:50000], 'error': None}
+
+        soup = BeautifulSoup(body, 'html.parser')
 
         # Extract title
         title = None

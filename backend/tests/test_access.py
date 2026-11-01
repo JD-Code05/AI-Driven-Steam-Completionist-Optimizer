@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.extensions import db
 from app.models.achievement import Achievement
 from app.models.data_source import DataSource
@@ -85,6 +87,27 @@ class AccessTests(BaseTestCase):
         r = self.client.post('/api/data-sources', json={'game_id': self.game_a.id, 'url': 'https://x.example'},
                              headers=self.auth(self.a))
         self.assertEqual(r.status_code, 201)
+
+    def test_editing_url_clears_scraped_content(self):
+        source = DataSource(game_id=self.game_a.id, url='https://y.example', scraped_content='old',
+                            last_scraped=datetime(2024, 1, 1))
+        db.session.add(source)
+        db.session.commit()
+        r = self.client.put(f'/api/data-sources/{source.id}', json={'url': 'https://z.example'},
+                            headers=self.auth(self.a))
+        self.assertEqual(r.status_code, 200)
+        db.session.refresh(source)
+        self.assertIsNone(source.scraped_content)
+        self.assertIsNone(source.last_scraped)
+
+    def test_editing_title_keeps_scraped_content(self):
+        source = DataSource(game_id=self.game_a.id, url='https://y.example', scraped_content='old')
+        db.session.add(source)
+        db.session.commit()
+        self.client.put(f'/api/data-sources/{source.id}', json={'title': 't', 'url': 'https://y.example'},
+                        headers=self.auth(self.a))
+        db.session.refresh(source)
+        self.assertEqual(source.scraped_content, 'old')
 
     def test_data_source_url_must_be_http(self):
         for url in ['javascript:alert(1)', 'file:///etc/passwd', 'https://', 123]:

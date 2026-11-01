@@ -1,10 +1,10 @@
 import logging
 from flask import Blueprint, request, jsonify
-import google.generativeai as genai
 from ..extensions import db
 from ..models.game import Game
 from ..models.achievement import Achievement
 from ..models.player_achievement import PlayerAchievement
+from ..services.gemini import GeminiError, GeminiNotConfigured, generate_text, model_name
 from ..utils.auth import auth_required
 
 logger = logging.getLogger(__name__)
@@ -86,36 +86,16 @@ def get_achievement_tip(achievement_id):
     )
 
     try:
-        from flask import current_app
-        api_key = current_app.config.get('GEMINI_API_KEY', '')
-        model_name = current_app.config.get('GEMINI_MODEL', 'gemini-2.5-flash')
-
-        if not api_key:
-            return jsonify({'error': 'GEMINI_API_KEY is not configured'}), 400
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=ACHIEVEMENT_TIP_SYSTEM,
-        )
-        response = model.generate_content(
-            user_prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.5,
-                max_output_tokens=2048,
-            ),
-        )
-        tip_md = response.text
-        if not tip_md:
-            return jsonify({'error': 'Gemini returned an empty response'}), 500
-
+        tip_md = generate_text(ACHIEVEMENT_TIP_SYSTEM, user_prompt, temperature=0.5, max_output_tokens=2048)
         return jsonify({
             'achievement_id': achievement_id,
             'achievement_name': achievement.display_name,
             'tip_md': tip_md,
-            'model_used': model_name,
+            'model_used': model_name(),
         })
 
-    except Exception as e:
+    except GeminiNotConfigured:
+        return jsonify({'error': 'GEMINI_API_KEY is not configured'}), 400
+    except GeminiError as e:
         logger.error(f"Achievement tip generation error: {e}")
         return jsonify({'error': f'AI generation failed: {str(e)}'}), 500

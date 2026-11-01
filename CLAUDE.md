@@ -24,7 +24,7 @@ All three tiers run as Docker containers: Docker Compose locally, Kubernetes (Do
 |-------|-----------|
 | Frontend | React 19, Vite 6, Tailwind CSS v4 (`@tailwindcss/vite`), axios, react-router-dom v7, react-icons, react-markdown |
 | Backend | Flask 3.1.1, Flask-SQLAlchemy, Flask-Migrate, Flask-CORS, PyMySQL, PyJWT, gunicorn, requests, BeautifulSoup4 |
-| AI | Google Gemini via the `google-generativeai` SDK (deprecated; `google-genai` is its replacement), default model `gemini-2.5-flash` |
+| AI | Google Gemini via the `google-genai` SDK (`services/gemini.py`), default model `gemini-2.5-flash` |
 | Artwork | Steam CDN cover art first, SteamGridDB as fallback |
 | Database | MySQL 8.0 |
 | Tests | Backend: stdlib `unittest` on in-memory SQLite. Frontend utils: `node --test` |

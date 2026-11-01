@@ -44,7 +44,7 @@ The AI flow is focused on **per-achievement guidance** — when a user clicks an
 | gunicorn            | 23.0.0  | Production WSGI server                         |
 | requests            | 2.32.3  | HTTP client for Steam API calls + web scraping |
 | beautifulsoup4      | 4.13.4  | HTML parsing for web scraping                  |
-| google-generativeai | 0.8.5   | Gemini AI SDK                                  |
+| google-genai | 0.8.5   | Gemini AI SDK                                  |
 | marshmallow         | 3.26.1  | Data serialization                             |
 
 ---

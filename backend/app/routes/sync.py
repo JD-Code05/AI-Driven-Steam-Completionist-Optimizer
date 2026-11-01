@@ -97,8 +97,10 @@ def sync_achievements(app_id):
         # 1. Get achievement schema (definitions)
         schema = steam_service.get_game_achievements_schema(app_id)
         if not schema:
-            game.total_achievements = 0
-            db.session.commit()
+            # an odd answer from Steam shouldn't erase a game we already know has achievements
+            if not Achievement.query.filter_by(game_id=game.id).first():
+                game.total_achievements = 0
+                db.session.commit()
             return jsonify({'message': 'No achievements found for this game', 'synced': 0})
 
         # 2. Get global percentages

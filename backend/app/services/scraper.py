@@ -22,6 +22,7 @@ _STRIP_TAGS = ['nav', 'header', 'footer', 'aside', 'script', 'style', 'noscript'
 
 _DEFAULT_PORTS = {'http': 80, 'https': 443}
 _ALLOWED_TYPES = {'text/html', 'application/xhtml+xml', 'text/plain'}
+_NAT64 = ipaddress.ip_network('64:ff9b::/96')
 MAX_REDIRECTS = 3
 MAX_BYTES = 5 * 1024 * 1024
 
@@ -29,6 +30,9 @@ MAX_BYTES = 5 * 1024 * 1024
 # shortcut: checks the address but doesn't pin it, so DNS rebinding could still reach internal hosts; pin the checked IP before other people can sign in
 def is_public_url(url):
     """True only for http(s) on default ports where every resolved address is public."""
+    # urlparse and requests read these differently, so the host checked wouldn't be the host fetched
+    if not isinstance(url, str) or '\\' in url or any(ord(c) <= 32 for c in url):
+        return False
     try:
         parsed = urlparse(url)
         if parsed.scheme not in _DEFAULT_PORTS or not parsed.hostname:
@@ -42,8 +46,8 @@ def is_public_url(url):
         return False
     for info in addresses:
         address = ipaddress.ip_address(info[4][0].split('%')[0])
-        mapped = getattr(address, 'ipv4_mapped', None)
-        if not (mapped or address).is_global:
+        address = getattr(address, 'ipv4_mapped', None) or address
+        if not address.is_global or address.is_multicast or (address.version == 6 and address in _NAT64):
             return False
     return True
 

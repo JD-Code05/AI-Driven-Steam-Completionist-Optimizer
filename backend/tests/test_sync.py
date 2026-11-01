@@ -128,6 +128,17 @@ class SyncAchievementsTests(BaseTestCase):
         db.session.expire_all()
         self.assertEqual(Game.query.filter_by(app_id=10).first().total_achievements, 0)
 
+    def test_empty_schema_does_not_zero_a_game_with_achievements(self):
+        me, _ = self.unlocked_setup()
+        game = Game.query.filter_by(app_id=10).first()
+        game.total_achievements = 1
+        db.session.commit()
+        with patch(f'{SVC}.get_game_achievements_schema', return_value=[]):
+            r = self.client.post('/api/sync/achievements/10', headers=self.auth(me))
+        self.assertEqual(r.status_code, 200)
+        db.session.expire_all()
+        self.assertEqual(Game.query.filter_by(app_id=10).first().total_achievements, 1)
+
     def test_failure_leaves_total_null(self):
         me = self.make_player('1')
         self.sync_games(me, (10, True))

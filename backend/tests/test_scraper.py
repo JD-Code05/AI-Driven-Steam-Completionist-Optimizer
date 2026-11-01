@@ -26,6 +26,17 @@ class PublicUrlTests(unittest.TestCase):
             with self.subTest(address=address), patch(RESOLVE, return_value=resolves_to(address)):
                 self.assertFalse(is_public_url('http://db/'))
 
+    def test_refuses_multicast_and_nat64(self):
+        for address in ['224.0.0.1', '64:ff9b::a00:1']:
+            with self.subTest(address=address), patch(RESOLVE, return_value=resolves_to(address)):
+                self.assertFalse(is_public_url('http://example.com/'))
+
+    def test_refuses_urls_parsers_disagree_on(self):
+        # urlparse sees example.com here, but requests connects to frontend:3000
+        with patch(RESOLVE, return_value=resolves_to('8.8.8.8')):
+            self.assertFalse(is_public_url('http://frontend:3000\\@example.com/'))
+            self.assertFalse(is_public_url('http://example.com/\tpath'))
+
     def test_refuses_when_any_address_is_internal(self):
         with patch(RESOLVE, return_value=resolves_to('8.8.8.8') + resolves_to('10.0.0.1')):
             self.assertFalse(is_public_url('https://example.com/'))
@@ -70,6 +81,13 @@ class ScrapeTests(unittest.TestCase):
     def test_redirect_to_internal_is_refused(self):
         self.scraper.session.get.return_value = page(status=302, location='http://169.254.169.254/latest')
         with self.resolve({'169.254.169.254': '169.254.169.254'}):
+            result = self.scraper.scrape_url('https://example.com/')
+        self.assertIsNone(result['content'])
+        self.assertEqual(self.scraper.session.get.call_count, 1)
+
+    def test_redirect_with_backslash_trick_is_refused(self):
+        self.scraper.session.get.return_value = page(status=302, location='http://frontend:3000\\@example.com/')
+        with self.resolve():
             result = self.scraper.scrape_url('https://example.com/')
         self.assertIsNone(result['content'])
         self.assertEqual(self.scraper.session.get.call_count, 1)

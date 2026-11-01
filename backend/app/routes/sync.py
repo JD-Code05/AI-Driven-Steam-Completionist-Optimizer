@@ -30,6 +30,7 @@ def sync_games():
         return jsonify({'message': 'No games found or profile is private', 'synced': 0})
 
     synced_count = 0
+    achievement_app_ids = []
     for g in owned_games:
         # Upsert game
         game = Game.query.filter_by(app_id=g['app_id']).first()
@@ -48,6 +49,12 @@ def sync_games():
                 game.img_icon_url = g['img_icon_url']
             if g['img_logo_url']:
                 game.img_logo_url = g['img_logo_url']
+
+        # NULL = not checked yet, 0 = confirmed none. Set after the flush: the column default would replace a None at insert.
+        if not game.total_achievements:
+            game.total_achievements = None if g['has_stats'] else 0
+        if g['has_stats']:
+            achievement_app_ids.append(g['app_id'])
 
         # Upsert player-game association
         pg = PlayerGame.query.filter_by(
@@ -68,7 +75,11 @@ def sync_games():
         synced_count += 1
 
     db.session.commit()
-    return jsonify({'message': f'Synced {synced_count} games', 'synced': synced_count})
+    return jsonify({
+        'message': f'Synced {synced_count} games',
+        'synced': synced_count,
+        'achievement_app_ids': achievement_app_ids,
+    })
 
 
 @sync_bp.route('/achievements/<int:app_id>', methods=['POST'])
@@ -86,6 +97,8 @@ def sync_achievements(app_id):
         # 1. Get achievement schema (definitions)
         schema = steam_service.get_game_achievements_schema(app_id)
         if not schema:
+            game.total_achievements = 0
+            db.session.commit()
             return jsonify({'message': 'No achievements found for this game', 'synced': 0})
 
         # 2. Get global percentages

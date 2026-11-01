@@ -49,7 +49,7 @@ export default function GameCard({ game, unlockedCount, totalAchievements }) {
           <div className="mt-2"><ProgressBar value={unlocked} max={total} tone={perfect ? 'ultra' : 'ink'} /></div>
         </>
       ) : (
-        <p className="text-xs text-muted">Not synced yet</p>
+        <p className="text-xs text-muted">{totalAchievements === 0 ? 'No achievements' : 'Not synced yet'}</p>
       )}
     </Link>
   )

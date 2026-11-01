@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from app.extensions import db
 from app.models.achievement import Achievement
+from app.models.game import Game
 from app.models.player_achievement import PlayerAchievement
 from app.models.player_game import PlayerGame
 from app.services.steam_api import SteamAPIError
@@ -91,6 +92,49 @@ class SyncAchievementsTests(BaseTestCase):
         me, pa = self.unlocked_setup()
         self.assertEqual(self.sync_with(me).status_code, 200)
         self.assert_unlock_kept(pa)
+
+    def owned(self, *games):
+        return [{'app_id': a, 'name': f'G{a}', 'img_icon_url': None, 'img_logo_url': None, 'img_capsule_url': None,
+                 'playtime_minutes': 0, 'has_stats': s} for a, s in games]
+
+    def sync_games(self, me, *games):
+        with patch(f'{SVC}.get_owned_games', return_value=self.owned(*games)):
+            return self.client.post('/api/sync/games', headers=self.auth(me))
+
+    def test_sync_games_lists_only_games_with_stats(self):
+        me = self.make_player('1')
+        r = self.sync_games(me, (10, True), (20, False))
+        self.assertEqual(r.json['achievement_app_ids'], [10])
+        self.assertEqual(Game.query.filter_by(app_id=20).first().total_achievements, 0)
+
+    def test_sync_games_marks_unchecked_as_null(self):
+        me = self.make_player('1')
+        stale = self.make_game(30, 'Old')
+        counted = self.make_game(40, 'Counted')
+        counted.total_achievements = 12
+        db.session.commit()
+        self.sync_games(me, (10, True), (30, True), (40, True))
+        db.session.expire_all()
+        self.assertIsNone(Game.query.filter_by(app_id=10).first().total_achievements)
+        self.assertIsNone(db.session.get(Game, stale.id).total_achievements)
+        self.assertEqual(db.session.get(Game, counted.id).total_achievements, 12)
+
+    def test_empty_schema_records_zero(self):
+        me = self.make_player('1')
+        self.sync_games(me, (10, True))
+        with patch(f'{SVC}.get_game_achievements_schema', return_value=[]):
+            r = self.client.post('/api/sync/achievements/10', headers=self.auth(me))
+        self.assertEqual(r.status_code, 200)
+        db.session.expire_all()
+        self.assertEqual(Game.query.filter_by(app_id=10).first().total_achievements, 0)
+
+    def test_failure_leaves_total_null(self):
+        me = self.make_player('1')
+        self.sync_games(me, (10, True))
+        r = self.sync_with(me, get_game_achievements_schema={'side_effect': SteamAPIError(status=500)})
+        self.assertEqual(r.status_code, 502)
+        db.session.expire_all()
+        self.assertIsNone(Game.query.filter_by(app_id=10).first().total_achievements)
 
     def test_sync_games_failure_reports_status(self):
         me = self.make_player('1')

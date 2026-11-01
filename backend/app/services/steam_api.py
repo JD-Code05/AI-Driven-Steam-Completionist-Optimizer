@@ -97,6 +97,7 @@ class SteamAPIService:
                 'img_logo_url': full_img_logo_url,
                 'img_capsule_url': capsule_url,
                 'playtime_minutes': g.get('playtime_forever', 0),
+                'has_stats': bool(g.get('has_community_visible_stats')),
             })
         return result
 

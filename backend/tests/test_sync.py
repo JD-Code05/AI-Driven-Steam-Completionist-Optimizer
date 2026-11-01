@@ -1,10 +1,15 @@
+from datetime import datetime
 from unittest.mock import patch
 
 from app.extensions import db
+from app.models.achievement import Achievement
+from app.models.player_achievement import PlayerAchievement
 from app.models.player_game import PlayerGame
+from app.services.steam_api import SteamAPIError
 from tests.base import BaseTestCase
 
-SCHEMA = [{'api_name': 'A1', 'display_name': 'One', 'description': '', 'icon_url': '', 'icon_gray_url': ''}]
+WHEN = datetime(2024, 1, 2, 3, 4, 5)
+SCHEMA =[{'api_name': 'A1', 'display_name': 'One', 'description': '', 'icon_url': '', 'icon_gray_url': ''}]
 SVC = 'app.routes.sync.SteamAPIService'
 
 
@@ -36,3 +41,59 @@ class SyncAchievementsTests(BaseTestCase):
         self.make_game(10, 'X')
         self.assertEqual(self.sync(me, 10).status_code, 200)
         self.assertEqual(PlayerGame.query.count(), 0)
+
+    def unlocked_setup(self):
+        me = self.make_player('1')
+        game = self.make_game(10, 'X')
+        ach = Achievement(game_id=game.id, api_name='A1', display_name='One')
+        db.session.add(ach)
+        db.session.flush()
+        pa = PlayerAchievement(player_id=me.id, achievement_id=ach.id, unlocked=True, unlock_time=WHEN)
+        db.session.add(pa)
+        db.session.commit()
+        return me, pa
+
+    def assert_unlock_kept(self, pa):
+        db.session.expire_all()
+        kept = db.session.get(PlayerAchievement, pa.id)
+        self.assertTrue(kept.unlocked)
+        self.assertEqual(kept.unlock_time, WHEN)
+
+    def sync_with(self, me, **calls):
+        patches = {'get_game_achievements_schema': {'return_value': SCHEMA},
+                   'get_global_achievement_percentages': {'return_value': {'A1': 5.0}},
+                   'get_player_achievements': {'return_value': []}}
+        patches.update(calls)
+        with patch(f'{SVC}.get_game_achievements_schema', **patches['get_game_achievements_schema']), \
+             patch(f'{SVC}.get_global_achievement_percentages', **patches['get_global_achievement_percentages']), \
+             patch(f'{SVC}.get_player_achievements', **patches['get_player_achievements']):
+            return self.client.post('/api/sync/achievements/10', headers=self.auth(me))
+
+    def test_steam_failure_leaves_existing_unlocks_untouched(self):
+        me, pa = self.unlocked_setup()
+        r = self.sync_with(me, get_player_achievements={'side_effect': SteamAPIError(status=500)})
+        self.assertEqual(r.status_code, 502)
+        self.assert_unlock_kept(pa)
+
+    def test_rate_limit_reaches_the_browser(self):
+        me, pa = self.unlocked_setup()
+        r = self.sync_with(me, get_game_achievements_schema={'side_effect': SteamAPIError(status=429)})
+        self.assertEqual(r.status_code, 429)
+        self.assert_unlock_kept(pa)
+
+    def test_private_profile_reaches_the_browser(self):
+        me, pa = self.unlocked_setup()
+        r = self.sync_with(me, get_player_achievements={'side_effect': SteamAPIError(status=403)})
+        self.assertEqual(r.status_code, 403)
+        self.assert_unlock_kept(pa)
+
+    def test_empty_player_response_keeps_unlock(self):
+        me, pa = self.unlocked_setup()
+        self.assertEqual(self.sync_with(me).status_code, 200)
+        self.assert_unlock_kept(pa)
+
+    def test_sync_games_failure_reports_status(self):
+        me = self.make_player('1')
+        with patch(f'{SVC}.get_owned_games', side_effect=SteamAPIError(status=429)):
+            r = self.client.post('/api/sync/games', headers=self.auth(me))
+        self.assertEqual(r.status_code, 429)

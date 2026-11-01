@@ -3,6 +3,15 @@ import requests
 from flask import current_app
 
 
+class SteamAPIError(Exception):
+    """A real Steam failure, as opposed to Steam answering that there's nothing to return."""
+
+    def __init__(self, status=None, body=None):
+        super().__init__(f'Steam request failed (status {status})')
+        self.status = status
+        self.body = body or {}
+
+
 class SteamAPIService:
     """Wrapper for Steam Web API calls with rate limiting."""
 
@@ -24,17 +33,28 @@ class SteamAPIService:
             time.sleep(self._rate_limit_interval - elapsed)
 
         SteamAPIService._last_request_time = time.time()
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.get(url, params=params, timeout=15)
+            if response.status_code >= 400:
+                try:
+                    body = response.json()
+                except ValueError:
+                    body = {}
+                raise SteamAPIError(status=response.status_code, body=body)
+            return response.json()
+        except (requests.exceptions.RequestException, ValueError) as e:
+            raise SteamAPIError() from e
 
     def get_player_summary(self, steam_id):
         """Get player profile info from Steam."""
         url = f'{self.BASE_URL}/ISteamUser/GetPlayerSummaries/v2/'
-        data = self._rate_limited_get(url, params={
-            'key': self.api_key,
-            'steamids': steam_id,
-        })
+        try:
+            data = self._rate_limited_get(url, params={
+                'key': self.api_key,
+                'steamids': steam_id,
+            })
+        except SteamAPIError:
+            return None
         players = data.get('response', {}).get('players', [])
         if not players:
             return None
@@ -89,8 +109,11 @@ class SteamAPIService:
                 'appid': app_id,
                 'l': 'english',
             })
-        except requests.exceptions.HTTPError:
-            return []
+        except SteamAPIError as e:
+            # Steam answers 400 for games with no stats
+            if e.status == 400:
+                return []
+            raise
 
         game_data = data.get('game', {})
         stats = game_data.get('availableGameStats', {})
@@ -113,8 +136,10 @@ class SteamAPIService:
                 'appid': app_id,
                 'l': 'english',
             })
-        except requests.exceptions.HTTPError:
-            return []
+        except SteamAPIError as e:
+            if e.status == 400 and 'no stats' in str(e.body.get('playerstats', {}).get('error', '')).lower():
+                return []
+            raise
 
         stats = data.get('playerstats', {})
         if not stats.get('success'):
@@ -134,7 +159,9 @@ class SteamAPIService:
             data = self._rate_limited_get(url, params={
                 'gameid': app_id,
             })
-        except requests.exceptions.HTTPError:
+        except SteamAPIError as e:
+            if e.status == 429:
+                raise
             return {}
 
         achievements = data.get('achievementpercentages', {}).get('achievements', [])

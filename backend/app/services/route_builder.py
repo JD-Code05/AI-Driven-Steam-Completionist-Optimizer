@@ -15,7 +15,8 @@ ROUTE_SYSTEM = (
     'List an achievement in the top-level "missable" only when your sources or strong knowledge of this game support '
     'that it can be permanently lost during a playthrough, with where it can be lost in "note", in one short sentence.\n\n'
     '"message" is 2-3 plain sentences on how to approach this game, for this player, mentioning anything missable.\n'
-    'Keep branch names under 30 characters.'
+    'Keep branch names under 30 characters. Keep each branch to about 40 steps at most: split large games into more '
+    'named branches rather than one long list. Use at most 8 branches.'
 )
 
 ROUTE_SCHEMA = {

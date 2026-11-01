@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Story route preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#111110;--surface:#1a1a19;--hover:#222220;--border:#2a2927;--strong:#44413c;--text:#edece8;--muted:#a9a69f;--ink:#edece8;--on:#111110;--done:#6cc28f;--warn:#f0a46a;--warnbg:#2c1e14;--ease:cubic-bezier(.23,1,.32,1);--drawer:cubic-bezier(.32,.72,0,1)}
+  *{box-sizing:border-box}
+  ::selection{background:#6cc28f44}
+  html{background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .hero{position:relative;height:300px;overflow:hidden}
+  .hero img{width:100%;height:100%;object-fit:cover;object-position:center 25%;display:block}
+  .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#11111022 0%,#111110bb 48%,#111110ee 72%,#111110 100%)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .head{position:relative;margin-top:-170px;display:grid;grid-template-columns:1fr minmax(0,440px);gap:40px;align-items:end;z-index:1}
+  h1{margin:0;font-size:clamp(34px,4.6vw,52px);line-height:1.04;letter-spacing:-.035em;font-weight:700;text-wrap:balance}
+  .game{margin:10px 0 0;color:#d5d3cd;font-size:15px}
+  .msg{margin:0;font-size:15px;line-height:1.55;color:#dddbd5;max-width:58ch}
+  .bar{margin-top:14px;height:5px;border-radius:9px;background:#ffffff1f;overflow:hidden}
+  .bar i{display:block;height:100%;width:4%;border-radius:9px;background:var(--done)}
+  .count{margin-top:7px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .scroll{overflow-x:auto;margin-top:28px;padding-bottom:32px;scrollbar-color:var(--strong) transparent}
+  .tree{position:relative;width:1072px;height:760px;margin:0 auto}
+  .tree>svg{position:absolute;inset:0;width:100%;height:100%}
+  .link{fill:none;stroke:var(--strong);stroke-width:2.5;stroke-linecap:round}
+  .link.ready{stroke:#77736b}
+  .link.trunk{stroke-width:4}
+  .link.done{stroke:var(--done);stroke-dasharray:1;stroke-dashoffset:1;animation:grow 900ms var(--ease) forwards}
+  @keyframes grow{to{stroke-dashoffset:0}}
+  .root{position:absolute;left:318px;top:0;width:68px;height:102px;border-radius:9px;object-fit:cover;box-shadow:0 10px 26px #000a;outline:1px solid #ffffff22}
+  .branch{position:absolute;transform:translateX(-50%);background:var(--bg);padding:2px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}
+  .node{position:absolute;display:flex;align-items:center;gap:14px;width:198px;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:14px}
+  .node:focus-visible,.more:focus-visible{outline:2px solid var(--ink);outline-offset:5px}
+  .pic{position:relative;flex:none;width:68px;height:68px;border-radius:14px;transition:transform 200ms var(--ease)}
+  .pic img{width:100%;height:100%;display:block;border-radius:14px;object-fit:cover}
+  .node:hover .pic{transform:translateY(-3px)}
+  .done-n .pic{box-shadow:0 6px 18px #0009;outline:2px solid var(--done);outline-offset:2px}
+  .next-n .pic{box-shadow:0 8px 24px #000b;outline:2px solid var(--ink);outline-offset:3px}
+  .next-n .pic::after{content:"";position:absolute;inset:-3px;border-radius:17px;border:2px solid var(--ink);animation:ping 2.6s var(--ease) infinite}
+  @keyframes ping{0%{transform:scale(1);opacity:.7}70%,100%{transform:scale(1.2);opacity:0}}
+  .later-n .pic{box-shadow:0 0 0 1px var(--strong)}
+  .later-n .pic img{opacity:.8}
+  .tick{position:absolute;right:-8px;bottom:-8px;width:24px;height:24px;border-radius:50%;background:var(--done);border:3px solid var(--bg);display:grid;place-items:center}
+  .tick svg{width:12px;height:12px}
+  .txt{min-width:0}
+  .txt b{display:block;font-size:14.5px;font-weight:600;line-height:1.25}
+  .txt>span{display:block;margin-top:3px;font-size:12.5px;color:var(--muted);line-height:1.35}
+  .later-n .txt b{color:#c9c6bf}
+  .next-n .txt>span{color:var(--text);font-weight:500}
+  .txt .miss{display:inline-flex;gap:4px;align-items:center;margin-top:4px;padding:1px 7px;border-radius:99px;background:var(--warnbg);color:var(--warn);font-size:12px;font-weight:600}
+  .miss svg{width:12px;height:12px;flex:none}
+  .more{position:absolute;transform:translateX(-50%);border:1px solid var(--strong);background:var(--surface);color:var(--text);border-radius:99px;padding:5px 12px;font:600 12.5px Geist,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+  .scrim{position:fixed;inset:0;background:#00000088;opacity:0;pointer-events:none;transition:opacity 240ms var(--ease);z-index:4}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--border);padding:22px;transform:translateX(100%);visibility:hidden;transition:transform 340ms var(--drawer),visibility 340ms;z-index:5;box-shadow:-18px 0 50px #0008}
+  .open .scrim{opacity:1;pointer-events:auto}.open .panel{transform:none;visibility:visible}
+  .close{float:right;width:32px;height:32px;border:0;border-radius:7px;background:var(--hover);color:var(--text);cursor:pointer;display:grid;place-items:center}
+  .panel img{width:76px;height:76px;border-radius:14px;display:block}
+  .panel h2{margin:16px 0 6px;font-size:22px;letter-spacing:-.02em;line-height:1.15}
+  .panel p{margin:0;color:var(--muted);font-size:14.5px}
+  .panel .warn{margin-top:14px;padding:10px 12px;border-radius:9px;background:var(--warnbg);color:var(--warn);font-size:13.5px}
+  .write{margin-top:20px;border:0;border-radius:9px;padding:11px 16px;background:var(--ink);color:var(--on);font:600 14px Geist,system-ui,sans-serif;cursor:pointer}
+  .note{color:var(--muted);font-size:12.5px;text-align:center;padding:0 24px 28px}
+  @media (max-width:820px){.head{grid-template-columns:1fr;gap:16px;margin-top:-150px}.hero{height:260px}}
+  @media (prefers-reduced-motion:reduce){.link.done{animation:none;stroke-dashoffset:0}.next-n .pic::after{animation:none;opacity:0}.pic,.panel,.scrim{transition:none}}
+</style>
+</head>
+<body>
+  <div class="hero"><img alt="" src="https://cdn.cloudflare.steamstatic.com/steam/apps/620/library_hero.jpg"></div>
+  <div class="wrap">
+    <header class="head">
+      <div>
+        <h1>Your route to 100%</h1>
+        <p class="game">Portal 2</p>
+      </div>
+      <div>
+        <p class="msg">Follow the story down the middle. Refuse the first test in Chapter 8 for You Made Your Point, because that chance won't come back. Co-op can wait until you have a partner.</p>
+        <div class="bar"><i></i></div>
+        <div class="count">2 of 51 done · sample progress</div>
+      </div>
+    </header>
+
+    <div class="scroll" tabindex="0" aria-label="Achievement tree">
+      <div class="tree" id="tree">
+        <svg id="lines" viewBox="0 0 1072 760" aria-hidden="true"></svg>
+        <img class="root" alt="Portal 2 cover" src="https://cdn.cloudflare.steamstatic.com/steam/apps/620/library_600x900_2x.jpg">
+      </div>
+    </div>
+    <p class="note">Preview with real Steam art and sample progress. The thick middle line is the story. Click any achievement.</p>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="panel" aria-label="Achievement details">
+    <button class="close" id="close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+    <img id="pImg" alt="" src="https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/620/WAKE_UP.jpg">
+    <h2 id="pName"></h2>
+    <p id="pDesc"></p>
+    <p class="warn" id="pWarn" hidden></p>
+    <button class="write">Write a guide</button>
+  </aside>
+
+<script>
+const base='https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/620/'
+const warnIcon='<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M6 1.5 11 10.5H1Z"/><path d="M6 5v2.5M6 9.2v.1"/></svg>'
+const tick='<span class="tick"><svg viewBox="0 0 12 12" fill="none" stroke="#111110" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.4 2.4 4.6-5"/></svg></span>'
+const X={left:92,trunk:352,right:612,far:872}, ROW=125, TOP=150
+const y=(r)=>TOP+ROW*r
+const branches=[
+ {name:'Story',x:X.trunk,start:0,main:true,more:9,steps:[
+   ['You Monster','Reunite with GLaDOS','WAKE_UP','done'],
+   ['Undiscouraged','Complete the first Thermal Discouragement Beam test','LASER','next'],
+   ['Bridge Over Troubling Water','Complete the first Hard Light Bridge test','BRIDGE','later'],
+   ['SaBOTour','Make a break for it','BREAK_OUT','later'],
+ ]},
+ {name:'Secrets',x:X.left,start:1,from:0,more:2,steps:[
+   ['Final Transmission',"Find the hidden signal in one of the Rat Man's dens",'CLEAN_UP','next'],
+   ['Ship Overboard','Discover the missing experiment','NO_BOAT','later'],
+   ['Portrait of a Lady','Find a hidden portrait','PORTRAIT','later'],
+ ]},
+ {name:'Side tests',x:X.right,start:2,from:1,steps:[
+   ['You Made Your Point','Refuse to solve the first test in Chapter 8','DEFIANT','next','Can be lost once Chapter 8 moves on. Do this before solving the first test.'],
+   ['Drop Box','Place a cube on a button without touching the cube','BOX_HOLE_IN_ONE','later'],
+   ['Overclocker','Complete Test Chamber 10 in 70 seconds','SPEED_RUN_LEVEL','later'],
+ ]},
+ {name:'Co-op',x:X.far,start:0,more:18,steps:[
+   ['High Five','Celebrate your cooperative calibration success','HI_FIVE_YOUR_PARTNER','next'],
+   ['Team Building','Complete all test chambers in the Team Building course','TEAM_BUILDING','later'],
+   ['You Saved Science','Complete all test chambers in all courses of co-op','NEW_BLOOD','later'],
+ ]},
+]
+const tree=document.getElementById('tree'), lines=document.getElementById('lines')
+const pImg=document.getElementById('pImg'),pName=document.getElementById('pName'),pDesc=document.getElementById('pDesc'),pWarn=document.getElementById('pWarn'),closeBtn=document.getElementById('close')
+const NS='http://www.w3.org/2000/svg'
+function line(d,cls,delay){const p=document.createElementNS(NS,'path');p.setAttribute('d',d);p.setAttribute('class','link '+cls);if(cls.includes('done')){p.setAttribute('pathLength','1');p.style.animationDelay=delay+'ms'}lines.appendChild(p)}
+for(const b of branches){
+  const label=document.createElement('div');label.className='branch';label.textContent=b.name;label.style.left=b.x+'px'
+  const firstY=y(b.start)
+  if(b.main){
+    line(`M${b.x} 102 L${b.x} ${firstY-8}`,'trunk done',100)
+    label.style.top=(firstY-34)+'px'
+  }else if(b.from!==undefined){
+    const sy=y(b.from)+74
+    line(`M${X.trunk} ${sy} C${X.trunk} ${sy+40} ${b.x} ${firstY-52} ${b.x} ${firstY-8}`,'ready',0)
+    label.style.top=(firstY-34)+'px'
+  }else{
+    line(`M386 60 C640 60 ${b.x} 70 ${b.x} ${firstY-8}`,'ready',0)
+    label.style.top=(firstY-34)+'px'
+  }
+  tree.appendChild(label)
+  b.steps.forEach((s,i)=>{
+    const [n,d,icon,state,warn]=s, ny=y(b.start+i)
+    if(i)line(`M${b.x} ${y(b.start+i-1)+76} L${b.x} ${ny-8}`,(state==='later'?'':'done')+(b.main?' trunk':''),500+i*120)
+    const el=document.createElement('button');el.type='button';el.className='node '+state+'-n';el.style.left=(b.x-34)+'px';el.style.top=ny+'px'
+    const sub=state==='done'?'Done':state==='next'?'Do this next':''
+    el.innerHTML=`<span class="pic"><img alt="" src="${base}${icon}${state==='later'?'_BW':''}.jpg">${state==='done'?tick:''}</span><span class="txt"><b>${n}</b>${sub?`<span>${sub}</span>`:''}${warn?`<span class="miss">${warnIcon}Can be missed</span>`:''}</span>`
+    el.onclick=()=>{pImg.src=base+icon+'.jpg';pName.textContent=n;pDesc.textContent=d;pWarn.hidden=!warn;pWarn.textContent=warn||'';document.body.classList.add('open');closeBtn.focus()}
+    tree.appendChild(el)
+  })
+  if(b.more){
+    const last=y(b.start+b.steps.length-1), m=document.createElement('button');m.type='button';m.className='more';m.textContent=`+${b.more} more`;m.style.left=b.x+'px';m.style.top=(last+98)+'px'
+    line(`M${b.x} ${last+76} L${b.x} ${last+98}`,b.main?'trunk':'',0);tree.appendChild(m)
+  }
+}
+const shut=()=>document.body.classList.remove('open')
+closeBtn.onclick=shut;document.getElementById('scrim').onclick=shut;addEventListener('keydown',e=>{if(e.key==='Escape')shut()})
+</script>
+</body>
+</html>

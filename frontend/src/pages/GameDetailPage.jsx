@@ -187,6 +187,7 @@ export default function GameDetailPage() {
           )}
         </div>
         <div className="ml-auto flex gap-2 max-[860px]:ml-0">
+          <Link to={`/games/${gameId}/optimize`} className={`${btn} border-border-strong bg-surface`}>View route</Link>
           {playerGame && (
             <button
               type="button"

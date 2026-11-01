@@ -1,194 +1,173 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { gamesAPI, aiAPI } from '../services/api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { aiAPI, achievementsAPI, gamesAPI, playerAchievementsAPI } from '../services/api'
+import AchievementPanel from '../components/AchievementPanel'
 import Layout from '../components/Layout'
-import { timeAgo } from '../utils/format'
-import ReactMarkdown from 'react-markdown'
-import { HiArrowLeft, HiCpuChip, HiClock, HiSparkles, HiArrowPath } from 'react-icons/hi2'
+import ProgressBar from '../components/ProgressBar'
+import RouteTree from '../components/RouteTree'
+import { buildRouteView } from '../utils/routeTree'
+
+const focusCls = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+const inkBtn = `cursor-pointer rounded-[9px] bg-ink px-4 py-2.5 text-sm font-semibold text-on-ink transition-transform duration-[120ms] ease-[var(--ease-out)] enabled:active:scale-[.97] disabled:opacity-60 motion-reduce:transition-none ${focusCls}`
+const secondaryBtn = `cursor-pointer rounded-lg border border-border-strong bg-surface px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 disabled:opacity-60 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-hover ${focusCls}`
+
+const steamArt = (appId, file) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/${file}`
 
 export default function OptimizationPage() {
   const { gameId } = useParams()
-  const { player } = useAuth()
-
   const [game, setGame] = useState(null)
+  const [achievements, setAchievements] = useState([])
+  const [playerAchs, setPlayerAchs] = useState([])
   const [route, setRoute] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState('loading') // loading | ready | notFound | failed
   const [generating, setGenerating] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState('')
+  const [selectedApi, setSelectedApi] = useState(null)
+  const [bannerFailed, setBannerFailed] = useState(false)
+  const currentGame = useRef(gameId)
 
   useEffect(() => {
-    loadData()
+    currentGame.current = gameId
+    let stale = false
+    setStatus('loading')
+    setGame(null)
+    setAchievements([])
+    setPlayerAchs([])
+    setRoute(null)
+    setError('')
+    setGenerating(false)
+    setSelectedApi(null)
+    setBannerFailed(false)
+
+    async function load() {
+      try {
+        const [gameRes, achRes, paRes, savedRoute] = await Promise.all([
+          gamesAPI.get(gameId),
+          achievementsAPI.list(gameId),
+          playerAchievementsAPI.list(gameId),
+          aiAPI.getRoute(gameId).then((r) => r.data.route).catch((err) => {
+            if (err.response?.status === 404) return null
+            throw err
+          }),
+        ])
+        if (stale) return
+        setGame(gameRes.data)
+        setAchievements(achRes.data)
+        setPlayerAchs(paRes.data)
+        setRoute(savedRoute)
+        setStatus('ready')
+      } catch (err) {
+        if (!stale) setStatus(err.response?.status === 404 ? 'notFound' : 'failed')
+      }
+    }
+    load()
+    return () => { stale = true }
   }, [gameId])
 
-  async function loadData() {
-    setLoading(true)
-    try {
-      const [gameRes] = await Promise.all([
-        gamesAPI.get(gameId),
-      ])
-      setGame(gameRes.data)
-
-      try {
-        const routeRes = await aiAPI.getRoute(gameId)
-        setRoute(routeRes.data)
-      } catch {
-        // No route yet — that's fine
-        setRoute(null)
-      }
-    } catch (err) {
-      console.error('Failed to load optimization data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   async function handleGenerate() {
+    const forGame = gameId
     setGenerating(true)
-    setError(null)
+    setError('')
     try {
-      const { data } = await aiAPI.generate(gameId)
-      setRoute(data.route)
+      const { data } = await aiAPI.generateRoute(forGame)
+      if (currentGame.current === forGame) setRoute(data.route)
     } catch (err) {
-      setError(err.response?.data?.error || 'Generation failed. Check your Gemini API key and try again.')
+      if (currentGame.current !== forGame) return
+      const message = err.response?.data?.error
+      setError(typeof message === 'string' ? message : "Couldn't write a route right now. Try again.")
     } finally {
-      setGenerating(false)
+      if (currentGame.current === forGame) setGenerating(false)
     }
   }
 
-  async function handleRegenerate() {
-    setGenerating(true)
-    setError(null)
-    try {
-      const { data } = await aiAPI.regenerate(gameId)
-      setRoute(data.route)
-    } catch (err) {
-      setError(err.response?.data?.error || 'Regeneration failed.')
-    } finally {
-      setGenerating(false)
-    }
-  }
+  const paById = useMemo(() => new Map(playerAchs.map((pa) => [pa.achievement_id, pa])), [playerAchs])
+  const view = useMemo(() => {
+    if (!route) return null
+    const unlockedIds = new Set(playerAchs.filter((pa) => pa.unlocked).map((pa) => pa.achievement_id))
+    return buildRouteView(route, achievements, unlockedIds)
+  }, [route, achievements, playerAchs])
 
-  if (loading) {
+  if (status === 'loading') {
     return (
       <Layout>
-        <div className="flex items-center justify-center py-32">
-          <div className="animate-spin motion-reduce:animate-none w-8 h-8 border-2 border-muted border-t-transparent rounded-full" />
+        <p role="status" className="py-32 text-center text-muted">Loading…</p>
+      </Layout>
+    )
+  }
+
+  if (!game) {
+    return (
+      <Layout>
+        <div className="py-32 text-center">
+          <p role={status === 'notFound' ? undefined : 'alert'} className="text-muted">{status === 'notFound' ? 'Game not found' : "Couldn't load this game. Try again."}</p>
+          <Link to="/dashboard" className={`mt-2 inline-block font-medium underline underline-offset-[3px] ${focusCls}`}>Back to Dashboard</Link>
         </div>
       </Layout>
     )
   }
 
+  const selectedStep = view?.branches.flatMap((b) => b.steps).find((s) => s.achievement.api_name === selectedApi)
+  const selected = selectedStep?.achievement ?? null
+  const selectedPa = selected && paById.get(selected.id)
+
   return (
     <Layout>
-      {/* Back link */}
-      <Link
-        to={`/games/${gameId}`}
-        className="inline-flex items-center gap-1 text-sm text-muted hover:text-text transition-colors mb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      >
-        <HiArrowLeft className="w-4 h-4" />
-        Back to {game?.name || 'Game'}
-      </Link>
-
-      {/* Header */}
-      <div className="bg-surface rounded-xl border border-border p-6 mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-hover rounded-lg">
-            <HiCpuChip className="w-6 h-6 text-ink" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-text">AI Optimization Route</h1>
-            <p className="text-sm text-muted">{game?.name}</p>
-          </div>
-          {route && (
-            <button
-              onClick={handleRegenerate}
-              disabled={generating}
-              className="ml-auto inline-flex items-center gap-2 px-3 py-2 bg-hover hover:bg-track text-text text-sm rounded-lg border border-border-strong transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            >
-              <HiArrowPath className={`w-4 h-4 ${generating ? 'animate-spin motion-reduce:animate-none' : ''}`} />
-              {generating ? 'Regenerating...' : 'Regenerate'}
-            </button>
-          )}
-        </div>
-        {route && (
-          <div className="flex items-center gap-4 mt-3 text-xs text-muted">
-            <span className="flex items-center gap-1">
-              <HiSparkles className="w-3 h-3" />
-              Model: {route.model_used || 'Unknown'}
-            </span>
-            <span className="flex items-center gap-1">
-              <HiClock className="w-3 h-3" />
-              Generated: {timeAgo(route.created_at)}
-            </span>
-          </div>
-        )}
+      <div className="route-hero">
+        {!bannerFailed && <img src={steamArt(game.app_id, 'library_hero.jpg')} alt="" onError={() => setBannerFailed(true)} />}
       </div>
 
-      {/* Error */}
+      <div className="relative z-[1] -mt-[170px] mb-7">
+        <Link to={`/games/${gameId}`} className={`mb-3 inline-block text-[13px] ${focusCls}`}>← {game.name}</Link>
+        <div className="grid items-end gap-x-10 gap-y-4 min-[861px]:grid-cols-[1fr_minmax(0,440px)]">
+          <h1 className="text-balance text-[clamp(34px,4.6vw,52px)] font-bold leading-[1.04] tracking-[-0.035em]">Your route to 100%</h1>
+          {view && (
+            <div>
+              <p className="max-w-[58ch] text-[15px] leading-[1.55]">{view.message}</p>
+              <div className="mt-3.5"><ProgressBar value={view.done} max={view.total} tone="uncommon" /></div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted tabular-nums">
+                <span>{view.done} of {view.total} done</span>
+                <button type="button" onClick={handleGenerate} disabled={generating} className={secondaryBtn}>Rewrite</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div aria-live="polite">
+        {generating && <p className="mb-5 rounded-lg bg-hover px-3.5 py-2.5 text-center">Mapping your achievements… this can take up to a minute.</p>}
+      </div>
+
       {error && (
-        <div className="bg-warn-bg border border-warn/30 rounded-xl p-4 mb-6">
-          <p className="text-sm text-warn">{error}</p>
+        <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-warn-bg px-3.5 py-2.5 text-warn">
+          <span>{error}</span>
+          <button type="button" onClick={handleGenerate} disabled={generating} className={secondaryBtn}>Try again</button>
         </div>
       )}
 
-      {/* Generating indicator */}
-      {generating && (
-        <div className="bg-surface rounded-xl border border-border p-12 text-center mb-6">
-          <div className="animate-spin motion-reduce:animate-none w-10 h-10 border-2 border-ink border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-text font-medium">Generating optimization route...</p>
-          <p className="text-xs text-muted mt-1">This may take 15-30 seconds</p>
+      {achievements.length === 0 ? (
+        <div className="py-16 text-center">
+          <Link to={`/games/${gameId}`} className={`font-medium underline underline-offset-[3px] ${focusCls}`}>Sync this game's achievements first</Link>
+        </div>
+      ) : view ? (
+        <>
+          <RouteTree view={view} game={game} onSelect={setSelectedApi} />
+          <p className="mt-2 text-center text-[13px] text-muted">This route is written by AI and can be wrong.</p>
+        </>
+      ) : !generating && !error && (
+        <div className="py-16 text-center">
+          <button type="button" onClick={handleGenerate} className={inkBtn}>Map this game</button>
         </div>
       )}
 
-      {/* Content */}
-      {route ? (
-        <div className="bg-surface rounded-xl border border-border p-6 lg:p-8">
-          <div className="prose prose-invert prose-base max-w-none
-            prose-headings:text-text prose-headings:font-bold
-            prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl
-            prose-p:text-text prose-p:leading-relaxed
-            prose-a:text-ink prose-a:underline hover:prose-a:no-underline
-            prose-strong:text-text
-            prose-li:text-text
-            prose-code:text-text prose-code:bg-hover prose-code:px-2 prose-code:py-1 prose-code:rounded-md
-            prose-pre:bg-bg prose-pre:border prose-pre:border-border prose-pre:p-4 prose-pre:rounded-lg
-            prose-blockquote:border-l-4 prose-blockquote:border-border-strong prose-blockquote:pl-4 prose-blockquote:text-muted
-            prose-hr:border-border
-            prose-table:text-base prose-table:w-full prose-table:border-collapse
-            prose-th:bg-hover prose-th:p-3 prose-th:text-text prose-th:font-semibold prose-th:border prose-th:border-border
-            prose-td:p-3 prose-td:text-muted prose-td:border prose-td:border-border
-          ">
-            <ReactMarkdown>{route.summary_md}</ReactMarkdown>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-surface rounded-xl border border-border p-12 text-center">
-          <HiCpuChip className="w-16 h-16 text-faint mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-text mb-2">No Optimization Route Yet</h2>
-          <p className="text-sm text-muted mb-6 max-w-md mx-auto">
-            Generate a personalized achievement optimization route powered by Gemini AI.
-            Make sure you've synced achievements and added bookmarks first.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-ink text-on-ink font-medium rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            >
-              <HiSparkles className={`w-5 h-5 ${generating ? 'animate-pulse motion-reduce:animate-none' : ''}`} />
-              {generating ? 'Generating...' : 'Generate AI Route'}
-            </button>
-            <Link
-              to={`/games/${gameId}`}
-              className="inline-flex items-center gap-2 px-4 py-3 bg-surface border border-border-strong text-text text-sm rounded-lg hover:bg-hover transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            >
-              <HiArrowLeft className="w-4 h-4" />
-              Back to Game
-            </Link>
-          </div>
-        </div>
-      )}
+      <AchievementPanel
+        achievement={selected}
+        unlocked={!!selectedPa?.unlocked}
+        unlockTime={selectedPa?.unlock_time}
+        game={game}
+        open={!!selected}
+        onClose={() => setSelectedApi(null)}
+        missableNote={selectedStep?.missableNote}
+      />
     </Layout>
   )
 }

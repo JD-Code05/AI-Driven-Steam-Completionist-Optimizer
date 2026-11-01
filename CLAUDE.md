@@ -84,7 +84,7 @@ All three tiers run as Docker containers: Docker Compose locally, Kubernetes (Do
 - **Scoping**: player data is always the caller's (`request.player_id`). Any `player_id` query parameter is ignored. Data-source writes require the game to be in the caller's library (`owns_game`).
 - **Login redirect** only goes back to `FRONTEND_URL`.
 - **Thin routes, services for external calls** (Steam, SteamGridDB, scraping).
-- **AI tips**: `ai.py` builds a prompt for one achievement and calls Gemini. Only Stardew Valley gets scraped reference material (the Stardew wiki); that hardcoded RAG is the owner's proof of concept, so keep it. Tips are cached in the browser's `localStorage`, not on the server.
+- **AI tips**: `ai.py` builds a prompt for one achievement and calls Gemini. Tips and routes read up to 5 saved guide links through `services/guide_context.py`; Stardew Valley also keeps its wiki source, the owner's proof of concept. `is_public_url` in `services/scraper.py` guards all scraping. Tips are cached in the browser's `localStorage`, not on the server.
 - **Rarity tiers** (`Achievement.rarity_tier`, from `global_percent`): <5% ultra-rare, <15% rare, <30% uncommon, else common.
 
 ### Frontend
@@ -102,8 +102,6 @@ All three tiers run as Docker containers: Docker Compose locally, Kubernetes (Do
 
 ## Not built yet
 
-- **Full-game optimization route**: `OptimizationPage` calls `aiAPI.getRoute/generate/regenerate`, which don't exist, and the `optimization_routes` table is unused. Its `prose-*` classes would need `@tailwindcss/typography`, which isn't installed.
-- AI tips that read the user's saved guide links for any game (generalize the Stardew proof of concept).
 - Server-side tip caching, automatic guide discovery, YouTube transcripts.
 
 ## Common Commands
@@ -141,13 +139,13 @@ Set in `.env` (see `.env.example`):
 
 Compose sets `MYSQL_HOST=db` and `MYSQL_PORT=3306`. `MYSQL_DATABASE` and `MYSQL_USER` default to `steam_optimizer` and `steam_user`. k8s hardcodes `FRONTEND_URL` to localhost:3000; change it before a real deploy.
 
-## API Endpoints (19)
+## API Endpoints (21)
 
 All require a JWT except login, callback and health.
 
 - **Auth**: `GET /api/auth/login`, `GET /api/auth/callback`, `GET /api/auth/me`, `POST /api/auth/logout`
 - **Sync**: `POST /api/sync/games`, `POST /api/sync/achievements/<app_id>`
-- **AI**: `POST /api/ai/achievement-tip/<achievement_id>`
+- **AI**: `POST /api/ai/achievement-tip/<achievement_id>`, `GET|POST /api/ai/routes/<game_id>` (saved route as JSON in `optimization_routes.summary_md`)
 - **Games**: `GET /api/games`, `GET /api/games/<id>`
 - **Player games**: `GET /api/player-games[?tracked=true]` (includes `unlocked_count` and `completed_at`), `PUT /api/player-games/<id>` (only `is_tracked` is writable)
 - **Achievements**: `GET /api/achievements?game_id=`

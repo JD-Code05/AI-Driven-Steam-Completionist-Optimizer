@@ -72,6 +72,8 @@ export const dataSourcesAPI = {
 // AI
 export const aiAPI = {
   getAchievementTip: (achievementId) => api.post(`/ai/achievement-tip/${achievementId}`),
+  getRoute: (gameId) => api.get(`/ai/routes/${gameId}`),
+  generateRoute: (gameId) => api.post(`/ai/routes/${gameId}`),
 }
 
 export default api

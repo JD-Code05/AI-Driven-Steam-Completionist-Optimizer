@@ -98,7 +98,7 @@ All three tiers run as Docker containers: Docker Compose locally, Kubernetes (Do
 ### Database
 
 - 7 tables: players, games, player_games, achievements, player_achievements, data_sources, optimization_routes.
-- `init.sql` creates the schema (`CREATE TABLE IF NOT EXISTS`). Flask-Migrate is installed for later migrations.
+- `init.sql` creates the schema on an empty database only (plain `CREATE TABLE`). Flask-Migrate is installed, but there is no migrations folder yet.
 
 ## Not built yet
 
@@ -112,7 +112,7 @@ Run these from the repo root. On Git Bash, prefix docker commands with `MSYS_NO_
 
 ```bash
 cp .env.example .env                       # fill in the Steam, SteamGridDB and Gemini keys
-docker compose up -d --build               # frontend http://localhost:3000, backend :5000
+docker compose up -d --build               # frontend http://localhost:3100, backend :5000
 
 # backend tests
 docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps backend python -m unittest discover -s tests -v
@@ -135,7 +135,7 @@ Set in `.env` (see `.env.example`):
 | `GEMINI_API_KEY` | From https://aistudio.google.com/app/apikey |
 | `GEMINI_MODEL` | Optional, default `gemini-2.5-flash` |
 | `BACKEND_URL` | Default `http://localhost:5000` (Steam OpenID return URL) |
-| `FRONTEND_URL` | Default `http://localhost:3000`; the only allowed login redirect |
+| `FRONTEND_URL` | Default `http://localhost:3100`; the only allowed login redirect |
 | `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` | Database passwords |
 | `FLASK_SECRET_KEY` | Signs the JWTs |
 

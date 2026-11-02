@@ -105,20 +105,20 @@ function layoutThemed(view, expandedNames, out) {
 }
 
 function layoutStory(view, main, expandedNames, out) {
-  const sides = view.branches.filter((b) => b !== main)
-  const trunkX = FIRST_X + (sides.length ? COL : 0)
+  const fromIndexOf = (b) => main.steps.findIndex((s) => s.achievement.api_name === b.branchesFrom)
+  // latest split sits closest, so links to farther columns pass above the nearer ones
+  const sides = view.branches.filter((b) => b !== main).sort((a, b) => fromIndexOf(b) - fromIndexOf(a))
+  const trunkX = FIRST_X + COL * Math.floor(sides.length / 2)
   out.root = { x: trunkX, y: 0 }
   const trunkCx = center(trunkX)
   out.labels.push({ name: main.name, x: trunkCx, y: STORY_TOP - 34 })
   const shownTrunk = placeBranch(out, main, trunkX, STORY_TOP, 0, expandedNames,
     (cx, y) => `M${cx} ${COVER_HEIGHT} L${cx} ${y - 8}`, true)
 
-  let lastX = trunkX
   sides.forEach((branch, i) => {
-    // first side goes left of the trunk, the rest fill columns to the right
-    const x = i === 0 ? FIRST_X : FIRST_X + COL * (i + 1)
-    lastX = Math.max(lastX, x)
-    const fromIndex = main.steps.findIndex((s) => s.achievement.api_name === branch.branchesFrom)
+    // alternate right and left of the trunk, working outward
+    const x = trunkX + (i % 2 ? -1 : 1) * COL * (Math.floor(i / 2) + 1)
+    const fromIndex = fromIndexOf(branch)
     let startRow = 0
     let entry
     if (fromIndex >= 0) {
@@ -134,7 +134,7 @@ function layoutStory(view, main, expandedNames, out) {
     out.labels.push({ name: branch.name, x: center(x), y: STORY_TOP + ROW * startRow - 34 })
     placeBranch(out, branch, x, STORY_TOP, startRow, expandedNames, entry)
   })
-  return lastX
+  return trunkX + COL * Math.ceil(sides.length / 2)
 }
 
 export function layoutTree(view, expandedNames) {

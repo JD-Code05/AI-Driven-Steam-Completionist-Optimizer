@@ -131,6 +131,34 @@ test('story: the trunk is marked, and its column stays the same', () => {
   assert.equal(layout.root.x, layout.nodes.find((n) => n.apiName === 'A1').x)
 })
 
+test('story: side branches split evenly around the trunk, latest split closest, and stay put when expanded', () => {
+  const r = route([
+    branch('Story', range(1, 10), { kind: 'main' }),
+    branch('Free', [11]),
+    branch('Mid', [12], { branches_from: 'A5' }),
+    branch('Late', [13], { branches_from: 'A9' }),
+    branch('Early', [14], { branches_from: 'A2' }),
+    branch('Long', range(15, 24), { branches_from: 'A3' }),
+  ], 'story')
+  const view = buildRouteView(r, achs(24), new Set())
+  const columns = (layout) => {
+    const x = (api) => layout.nodes.find((n) => n.apiName === api).x
+    return { trunk: x('A1'), free: x('A11'), mid: x('A12'), late: x('A13'), early: x('A14'), long: x('A15') }
+  }
+  const closed = layoutTree(view, new Set())
+  const c = columns(closed)
+  const sides = [c.free, c.mid, c.late, c.early, c.long]
+  assert.equal(sides.filter((x) => x < c.trunk).length, 2)
+  assert.equal(sides.filter((x) => x > c.trunk).length, 3)
+  assert.ok(Math.abs(c.late - c.trunk) < Math.abs(c.long - c.trunk))
+  assert.ok(Math.abs(c.mid - c.trunk) < Math.abs(c.early - c.trunk))
+  assert.ok(Math.abs(c.early - c.trunk) < Math.abs(c.free - c.trunk))
+  assert.ok(Math.min(...closed.nodes.map((n) => n.x)) >= 0)
+  assert.ok(closed.width >= Math.max(...closed.nodes.map((n) => n.x)) + 198)
+  assert.equal(overlaps(closed.nodes), false)
+  assert.deepEqual(columns(layoutTree(view, new Set(['Story', 'Long']))), c)
+})
+
 test('story: a side branch from a hidden step attaches to the last visible step before it', () => {
   const r = route([
     branch('Story', range(1, 10), { kind: 'main' }),
